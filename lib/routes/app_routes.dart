@@ -55,21 +55,4 @@ class AppRoutes {
         );
     }
   }
-
-  /// Helper methods để navigate dễ dàng hơn
-  static void navigateToHome(BuildContext context) {
-    Navigator.pushNamed(context, home);
-  }
-
-  static void navigateToProfile(BuildContext context) {
-    Navigator.pushNamed(context, profile);
-  }
-
-  static void navigateToSettings(BuildContext context) {
-    Navigator.pushNamed(context, settings);
-  }
-
-  static void navigateToDetails(BuildContext context, {required Map<String, dynamic> arguments}) {
-    Navigator.pushNamed(context, details, arguments: arguments);
-  }
 }
