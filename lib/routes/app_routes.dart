@@ -20,7 +20,6 @@ class AppRoutes {
     return {
       home: (context) => const HomeScreen(),
       profile: (context) => const ProfileScreen(),
-      settings: (context) => const SettingsScreen(),
       details: (context) => const DetailsScreen(),
       login: (context) => const LoginScreen(),
       register: (context) => const RegisterScreen(),
@@ -48,9 +47,7 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (context) => Scaffold(
             appBar: AppBar(title: const Text('Error')),
-            body: const Center(
-              child: Text('Page not found!'),
-            ),
+            body: const Center(child: Text('Page not found!')),
           ),
         );
     }

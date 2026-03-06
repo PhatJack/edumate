@@ -124,18 +124,7 @@ Use scopes to specify what part of the codebase is affected:
 
 ## Breaking Changes
 
-If your commit introduces breaking changes, add `BREAKING CHANGE:` in the footer:
-
-```
-feat(api): change authentication endpoint structure
-
-BREAKING CHANGE: Authentication endpoint moved from /api/auth to /api/v2/auth
-Users need to update their API integration code.
-
-Closes #456
-```
-
-Or use `!` after the type/scope:
+If your commit introduces breaking changes, use `!` after the type/scope:
 
 ```
 feat(api)!: change authentication endpoint structure
