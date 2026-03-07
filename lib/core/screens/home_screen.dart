@@ -12,7 +12,9 @@ class HomeScreen extends StatelessWidget {
             const Text('Home Screen'),
             Text(
               'Trang chủ của ứng dụng',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onPrimary),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onPrimary,
+              ),
             ),
           ],
         ),
@@ -27,47 +29,6 @@ class HomeScreen extends StatelessWidget {
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 30),
-
-            // Navigation Button 1: Named Route
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/profile');
-              },
-              child: const Text('Đi tới Profile (Named Route)'),
-            ),
-
-            const SizedBox(height: 15),
-
-            // Navigation Button 2: Direct Navigation
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              child: const Text('Đi tới Settings (Direct)'),
-            ),
-
-            const SizedBox(height: 15),
-
-            // Navigation Button 3: WithArguments
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(
-                  context,
-                  '/details',
-                  arguments: {'title': 'Chi tiết sản phẩm', 'id': 123},
-                );
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-              child: const Text('Đi tới Details (With Arguments)'),
-            ),
-
-            const SizedBox(height: 15),
 
             // Button test Login
             ElevatedButton(

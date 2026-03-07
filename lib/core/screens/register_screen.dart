@@ -1,5 +1,7 @@
 import 'package:edumate/core/constants/images.dart';
+import 'package:edumate/core/extensions/theme_extension.dart';
 import 'package:flutter/material.dart';
+import 'package:edumate/core/constants/sizes.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -75,14 +77,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 key: _formKey,
                 child: Column(
                   children: [
-                    const SizedBox(height: 16),
+                    const SizedBox(height: ESizes.sm),
 
                     // Email
                     TextFormField(
                       focusNode: _emailFocus,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
+                        isDense: true,
                         labelText: 'Email',
-                        border: OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(ESizes.radiusMd),
+                        ),
                         floatingLabelBehavior: FloatingLabelBehavior.never,
                       ),
                       keyboardType: TextInputType.emailAddress,
@@ -101,14 +106,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                       onSaved: (value) => email = value ?? '',
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: ESizes.sm),
 
                     // Password
                     TextFormField(
                       focusNode: _passwordFocus,
                       decoration: InputDecoration(
+                        isDense: true,
                         labelText: 'Mật khẩu',
-                        border: const OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(ESizes.radiusMd),
+                        ),
                         floatingLabelBehavior: FloatingLabelBehavior.never,
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -142,14 +150,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                       onSaved: (value) => password = value ?? '',
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: ESizes.sm),
 
                     // Confirm Password
                     TextFormField(
                       focusNode: _confirmPasswordFocus,
                       decoration: InputDecoration(
+                        isDense: true,
                         labelText: 'Xác nhận mật khẩu',
-                        border: const OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(ESizes.radiusMd),
+                        ),
                         floatingLabelBehavior: FloatingLabelBehavior.never,
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -190,23 +201,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                       onSaved: (value) => confirmPassword = value ?? '',
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: ESizes.sm),
 
                     // Submit button
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: ESizes.sm,
+                          ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(
+                              ESizes.radiusMd,
+                            ),
                           ),
-                          textStyle: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          textStyle: context.text.titleMedium,
                         ),
                         onPressed: () {
                           if (_formKey.currentState!.validate()) {
@@ -263,7 +273,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         const Expanded(child: Divider()),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: ESizes.sm,
+                          ),
                           child: Text(
                             'Hoặc đăng ký với',
                             style: Theme.of(context).textTheme.bodySmall
@@ -273,21 +285,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         const Expanded(child: Divider()),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: ESizes.md),
                     // ── Google button ────────────────────────────────
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: BorderSide(color: colorScheme.outline),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: ESizes.sm,
+                          ),
+                          side: BorderSide(color: context.colors.outline),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(
+                              ESizes.radiusMd,
+                            ),
                           ),
-                          textStyle: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          textStyle: context.text.titleMedium,
                         ),
                         icon: Image.asset(
                           EImages.googleLogo,
