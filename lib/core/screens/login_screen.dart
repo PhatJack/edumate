@@ -1,5 +1,7 @@
 import 'package:edumate/core/constants/images.dart';
+import 'package:edumate/core/extensions/theme_extension.dart';
 import 'package:flutter/material.dart';
+import 'package:edumate/core/constants/sizes.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -25,7 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
@@ -51,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     'Đăng nhập để tiếp tục sử dụng ứng dụng',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+                      color: context.colors.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -60,12 +61,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 key: _formKey,
                 child: Column(
                   children: [
-                    const SizedBox(height: 16),
+                    const SizedBox(height: ESizes.lg),
                     TextFormField(
                       focusNode: _emailFocus,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
+                        isDense: true,
                         labelText: 'Email',
-                        border: OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(ESizes.radiusMd),
+                        ),
                         floatingLabelBehavior: FloatingLabelBehavior.never,
                       ),
                       keyboardType: TextInputType.emailAddress,
@@ -84,12 +88,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                       onSaved: (value) => email = value ?? '',
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: ESizes.sm),
                     TextFormField(
                       focusNode: _passwordFocus,
                       decoration: InputDecoration(
+                        isDense: true,
                         labelText: 'Mật khẩu',
-                        border: const OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(ESizes.radiusMd),
+                        ),
                         floatingLabelBehavior: FloatingLabelBehavior.never,
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -128,21 +135,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                       onSaved: (value) => password = value ?? '',
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: ESizes.sm),
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: ESizes.sm,
+                          ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(
+                              ESizes.radiusMd,
+                            ),
                           ),
-                          textStyle: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          textStyle: context.text.titleMedium,
                         ),
                         onPressed: () {
                           if (_formKey.currentState!.validate()) {
@@ -153,6 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 content: Text('Đăng nhập thành công!'),
                               ),
                             );
+                            Navigator.pushReplacementNamed(context, '/home');
                           }
                         },
                         child: const Text('Đăng nhập'),
@@ -165,9 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           'Chưa có tài khoản? ',
                           style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
+                                color: context.colors.onSurfaceVariant,
                               ),
                         ),
                         TextButton(
@@ -185,7 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Text(
                             'Đăng ký',
                             style: TextStyle(
-                              color: colorScheme.primary,
+                              color: context.colors.primary,
                               decoration: TextDecoration.underline,
                             ),
                           ),
@@ -194,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
 
                     // ── Divider ─────────────────────────────────────
-                    const SizedBox(height: 8),
+                    const SizedBox(height: ESizes.sm),
                     Row(
                       children: [
                         const Expanded(child: Divider()),
@@ -203,28 +208,31 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Text(
                             'Hoặc đăng nhập với',
                             style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: colorScheme.onSurfaceVariant),
+                                ?.copyWith(
+                                  color: context.colors.onSurfaceVariant,
+                                ),
                           ),
                         ),
                         const Expanded(child: Divider()),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: ESizes.md),
 
                     // ── Google button ────────────────────────────────
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: BorderSide(color: colorScheme.outline),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: ESizes.sm,
+                          ),
+                          side: BorderSide(color: context.colors.outline),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(
+                              ESizes.radiusMd,
+                            ),
                           ),
-                          textStyle: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          textStyle: context.text.titleMedium,
                         ),
                         icon: Image.asset(
                           EImages.googleLogo,

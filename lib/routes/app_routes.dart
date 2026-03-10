@@ -4,6 +4,7 @@ import '../core/screens/profile_screen.dart';
 import '../core/screens/details_screen.dart';
 import '../core/screens/login_screen.dart';
 import '../core/screens/register_screen.dart';
+import '../core/screens/intro_screen.dart';
 
 /// Class quản lý tất cả routes trong app
 class AppRoutes {
@@ -14,16 +15,17 @@ class AppRoutes {
   static const String details = '/details';
   static const String login = '/login';
   static const String register = '/register';
+  static const String intro = '/intro';
 
   /// Map chứa tất cả routes và màn hình tương ứng
   static Map<String, WidgetBuilder> getRoutes() {
     return {
       home: (context) => const HomeScreen(),
       profile: (context) => const ProfileScreen(),
-      settings: (context) => const SettingsScreen(),
       details: (context) => const DetailsScreen(),
       login: (context) => const LoginScreen(),
       register: (context) => const RegisterScreen(),
+      intro: (context) => const IntroScreen(),
     };
   }
 
@@ -44,32 +46,15 @@ class AppRoutes {
         return MaterialPageRoute(builder: (context) => const LoginScreen());
       case register:
         return MaterialPageRoute(builder: (context) => const RegisterScreen());
+      case intro:
+        return MaterialPageRoute(builder: (context) => const IntroScreen());
       default:
         return MaterialPageRoute(
           builder: (context) => Scaffold(
             appBar: AppBar(title: const Text('Error')),
-            body: const Center(
-              child: Text('Page not found!'),
-            ),
+            body: const Center(child: Text('Page not found!')),
           ),
         );
     }
-  }
-
-  /// Helper methods để navigate dễ dàng hơn
-  static void navigateToHome(BuildContext context) {
-    Navigator.pushNamed(context, home);
-  }
-
-  static void navigateToProfile(BuildContext context) {
-    Navigator.pushNamed(context, profile);
-  }
-
-  static void navigateToSettings(BuildContext context) {
-    Navigator.pushNamed(context, settings);
-  }
-
-  static void navigateToDetails(BuildContext context, {required Map<String, dynamic> arguments}) {
-    Navigator.pushNamed(context, details, arguments: arguments);
   }
 }

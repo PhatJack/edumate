@@ -52,11 +52,6 @@ Use one of these types for every commit:
 
 ```
 feat(auth): add Google OAuth2 authentication
-
-Implemented Google OAuth2 authentication flow with proper token
-handling and refresh mechanism.
-
-Closes #123
 ```
 
 ```
@@ -129,44 +124,11 @@ Use scopes to specify what part of the codebase is affected:
 
 ## Breaking Changes
 
-If your commit introduces breaking changes, add `BREAKING CHANGE:` in the footer:
-
-```
-feat(api): change authentication endpoint structure
-
-BREAKING CHANGE: Authentication endpoint moved from /api/auth to /api/v2/auth
-Users need to update their API integration code.
-
-Closes #456
-```
-
-Or use `!` after the type/scope:
+If your commit introduces breaking changes, use `!` after the type/scope:
 
 ```
 feat(api)!: change authentication endpoint structure
 ```
-<!-- 
-## Tips for GitHub Copilot
-
-When writing commits with GitHub Copilot:
-
-1. Start typing the type (e.g., "feat") and Copilot will suggest the rest
-2. Be specific about what changed, not how it was implemented
-3. Focus on the "why" in the body if the change isn't obvious
-4. Reference issue numbers when applicable
-5. Keep commits atomic - one logical change per commit
-
-## Git Commit Command
-
-```bash
-git commit -m "feat(auth): add Google OAuth2 authentication"
-```
-
-Or for commits with body and footer:
-
-```bash
-git commit -m "feat(auth): add Google OAuth2 authentication" -m "Implemented Google OAuth2 authentication flow with proper token handling." -m "Closes #123"
-``` -->
 
 ## Validation
 

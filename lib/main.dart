@@ -9,6 +9,11 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  bool get _isLoggedIn {
+    // TODO: Replace this with real auth/session state.
+    return false;
+  }
+
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
@@ -17,19 +22,17 @@ class MyApp extends StatelessWidget {
       theme: wgerLightTheme,
       // Cách 1: Sử dụng routes map (đơn giản)
       routes: AppRoutes.getRoutes(),
-      initialRoute: AppRoutes.home,
-      
+      initialRoute: _isLoggedIn ? AppRoutes.home : AppRoutes.intro,
+
       // Cách 2: Sử dụng onGenerateRoute (linh hoạt hơn, xử lý được routes động)
       // onGenerateRoute: AppRoutes.onGenerateRoute,
-      
+
       // Xử lý route không tồn tại (404 page)
       onUnknownRoute: (settings) {
         return MaterialPageRoute(
           builder: (context) => Scaffold(
             appBar: AppBar(title: const Text('Error 404')),
-            body: const Center(
-              child: Text('Trang không tồn tại!'),
-            ),
+            body: const Center(child: Text('Trang không tồn tại!')),
           ),
         );
       },

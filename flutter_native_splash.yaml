@@ -7,3 +7,6 @@ flutter_native_splash:
   android_gravity: center
   ios_content_mode: center
   fullscreen: true
+  android_12:
+    color: "#2a4c7d"
+    image: assets/icons/ic_launcher/playstore.png

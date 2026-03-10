@@ -1,0 +1,72 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '0 0 * * 0' # Chạy tự động vào mỗi Chủ Nhật (tùy chọn)
+
+jobs:
+  security-scan-android:
+    name: Security Scan (Android)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Lấy các library của Flutter
+        run: flutter pub get || true # Bỏ qua lỗi nếu chưa có Flutter (do Ubuntu không cài Flutter sẵn ở bước này, ta chỉ mượn repo)
+
+      - name: Quét bảo mật dự án Android
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'android' # Chỉ định quét riêng thư mục android
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Slack Notification (Android Security Scan)
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_CHANNEL: 'deploy'
+          SLACK_COLOR: 'danger'
+          SLACK_TITLE: "🚨 Lỗ hổng Bảo mật (Android) 🚨"
+          SLACK_MESSAGE: ":warning: Đã phát hiện lỗ hổng bảo mật mức độ CRITICAL/HIGH trong dự án **Android** (thư mục `android/` hoặc thư viện liên quan). Bạn hãy vào tab Actions trên Github để xem chi tiết."
+          SLACK_USERNAME: "Security Bot"
+
+  security-scan-ios:
+    name: Security Scan (iOS)
+    runs-on: ubuntu-latest # iOS Dependencies (Podfile.lock) hoàn toàn có thể quét trên ubuntu bằng Trivy
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Quét bảo mật dự án iOS
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'ios' # Chỉ định quét riêng thư mục ios (Podfile.lock...)
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Slack Notification (iOS Security Scan)
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_CHANNEL: 'deploy'
+          SLACK_COLOR: 'danger'
+          SLACK_TITLE: "🚨 Lỗ hổng Bảo mật (iOS) 🚨"
+          SLACK_MESSAGE: ":warning: Đã phát hiện lỗ hổng bảo mật mức độ CRITICAL/HIGH trong dự án **iOS** (thư mục `ios/` hoặc thư viện CocoaPods). Bạn hãy vào tab Actions trên Github để xem chi tiết."
+          SLACK_USERNAME: "Security Bot"
+
