@@ -1,0 +1,77 @@
+name: Flutter Build & Slack Notify
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17' # Tùy chỉnh phiên bản Java bạn đang sử dụng, 17 là bản phổ biến cho Flutter mới nhất
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Slack Notification (Android)
+        if: always() # Luôn chạy thông báo dù build lỗi hay thành công
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_CHANNEL: 'deploy'
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: "Trạng thái Build Android"
+          SLACK_MESSAGE: "Kết quả kiểm tra build Android: ${{ job.status }} :android:"
+          SLACK_USERNAME: "Edumate CI Build Bot"
+
+  build-ios:
+    name: Build iOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build iOS (No Codesign)
+        # Fix chứng chỉ iOS bằng cách không kiểm tra code signing để test build thôi
+        run: flutter build ios --release --no-codesign
+
+      - name: Slack Notification (iOS)
+        if: always() # Luôn chạy thông báo dù build lỗi hay thành công
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_CHANNEL: 'deploy'
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: "Trạng thái Build iOS"
+          SLACK_MESSAGE: "Kết quả kiểm tra build iOS: ${{ job.status }} :apple:"
+          SLACK_USERNAME: "Edumate CI Build Bot"
