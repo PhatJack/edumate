@@ -67,11 +67,20 @@ jobs:
 
       - name: Slack Notification (iOS)
         if: always() # Luôn chạy thông báo dù build lỗi hay thành công
-        uses: rtCamp/action-slack-notify@v2
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "channel": "#deploy",
+              "username": "Edumate CI Build Bot",
+              "attachments": [
+                {
+                  "color": "${{ job.status == 'success' && 'good' || 'danger' }}",
+                  "title": "Trạng thái Build iOS",
+                  "text": "Kết quả kiểm tra build iOS: ${{ job.status }} :apple:"
+                }
+              ]
+            }
         env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_CHANNEL: 'deploy'
-          SLACK_COLOR: ${{ job.status }}
-          SLACK_TITLE: "Trạng thái Build iOS"
-          SLACK_MESSAGE: "Kết quả kiểm tra build iOS: ${{ job.status }} :apple:"
-          SLACK_USERNAME: "Edumate CI Build Bot"
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
