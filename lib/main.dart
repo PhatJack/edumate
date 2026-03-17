@@ -1,9 +1,14 @@
+import 'package:edumate/core/providers/documents_provider.dart';
 import 'package:edumate/core/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'routes/app_routes.dart';
 
 void main() {
-  runApp(const MyApp());
+  final documentsNotifier = ValueNotifier<List<DocumentItem>>([]);
+  runApp(DocumentsProvider(
+    notifier: documentsNotifier,
+    child: const MyApp(),
+  ));
 }
 
 class MyApp extends StatelessWidget {
@@ -20,12 +25,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Routing Demo',
       theme: wgerLightTheme,
-      // Cách 1: Sử dụng routes map (đơn giản)
-      routes: AppRoutes.getRoutes(),
+      // Sử dụng onGenerateRoute để hỗ trợ truyền arguments qua named routes
+      onGenerateRoute: AppRoutes.onGenerateRoute,
       initialRoute: _isLoggedIn ? AppRoutes.home : AppRoutes.intro,
-
-      // Cách 2: Sử dụng onGenerateRoute (linh hoạt hơn, xử lý được routes động)
-      // onGenerateRoute: AppRoutes.onGenerateRoute,
 
       // Xử lý route không tồn tại (404 page)
       onUnknownRoute: (settings) {

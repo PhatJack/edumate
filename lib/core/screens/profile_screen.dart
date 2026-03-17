@@ -1,3 +1,4 @@
+import 'package:edumate/core/widgets/app_layout.dart';
 import 'package:flutter/material.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -5,11 +6,8 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile Screen'),
-        backgroundColor: Colors.purple,
-      ),
+    return EAppLayout(
+      title: 'Profile',
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -30,23 +28,15 @@ class ProfileScreen extends StatelessWidget {
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 30),
-            
-            // Back button
             ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-              },
+              onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.arrow_back),
               label: const Text('Quay lại Home'),
             ),
-            
             const SizedBox(height: 15),
-            
-            // Replace navigation
             OutlinedButton(
-              onPressed: () {
-                Navigator.pushReplacementNamed(context, '/settings');
-              },
+              onPressed: () =>
+                  Navigator.pushReplacementNamed(context, '/settings'),
               child: const Text('Thay thế bằng Settings'),
             ),
           ],

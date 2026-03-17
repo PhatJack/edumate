@@ -5,6 +5,7 @@ import '../core/screens/details_screen.dart';
 import '../core/screens/login_screen.dart';
 import '../core/screens/register_screen.dart';
 import '../core/screens/intro_screen.dart';
+import '../core/screens/chat_screen.dart';
 
 /// Class quản lý tất cả routes trong app
 class AppRoutes {
@@ -16,6 +17,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String register = '/register';
   static const String intro = '/intro';
+  static const String chat = '/chat';
 
   /// Map chứa tất cả routes và màn hình tương ứng
   static Map<String, WidgetBuilder> getRoutes() {
@@ -48,6 +50,14 @@ class AppRoutes {
         return MaterialPageRoute(builder: (context) => const RegisterScreen());
       case intro:
         return MaterialPageRoute(builder: (context) => const IntroScreen());
+      case chat:
+        final args = settings.arguments as Map<String, dynamic>?;
+        return MaterialPageRoute(
+          builder: (context) => ChatScreen(
+            documentTitle: args?['title'] ?? 'Tài liệu mới',
+            documentIcon: args?['icon'] ?? Icons.description_outlined,
+          ),
+        );
       default:
         return MaterialPageRoute(
           builder: (context) => Scaffold(
