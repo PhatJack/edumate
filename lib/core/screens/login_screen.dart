@@ -159,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 content: Text('Đăng nhập thành công!'),
                               ),
                             );
-                            Navigator.pushReplacementNamed(context, '/home');
+                            Navigator.pushReplacementNamed(context, '/');
                           }
                         },
                         child: const Text('Đăng nhập'),
