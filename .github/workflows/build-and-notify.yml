@@ -1,4 +1,4 @@
-name: Flutter Build & Slack Notify
+name: Flutter Build
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: '17' # Tùy chỉnh phiên bản Java bạn đang sử dụng, 17 là bản phổ biến cho Flutter mới nhất
+          java-version: '17'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -35,15 +35,21 @@ jobs:
         run: flutter build apk --release
 
       - name: Slack Notification (Android)
-        if: always() # Luôn chạy thông báo dù build lỗi hay thành công
+        if: always()
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_CHANNEL: 'deploy'
-          SLACK_COLOR: ${{ job.status }}
-          SLACK_TITLE: "Trạng thái Build Android"
-          SLACK_MESSAGE: "Kết quả kiểm tra build Android: ${{ job.status }} :android:"
-          SLACK_USERNAME: "Edumate CI Build Bot"
+          SLACK_COLOR: ${{ job.status == 'success' && 'good' || (job.status == 'failure' && 'danger') || 'warning' }}
+          SLACK_ICON_EMOJI: ':robot_face:'
+          SLACK_TITLE: "App Build - Android ${{ job.status == 'success' && '✅ SUCCESS' || (job.status == 'failure' && '❌ FAILED') || '⚠️ CANCELLED/SKIPPED' }}"
+          SLACK_MESSAGE: |
+            *Status*: ${{ job.status }}
+            *Branch*: ${{ github.ref_name }}
+            *Commit*: ${{ github.sha }}
+            *Workflow*: ${{ github.workflow }}
+            *Run*: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SLACK_USERNAME: "Edumate CI Bot"
 
   build-ios:
     name: Build iOS
@@ -62,25 +68,26 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS (No Codesign)
-        # Fix chứng chỉ iOS bằng cách không kiểm tra code signing để test build thôi
         run: flutter build ios --release --no-codesign
 
+  notify-ios:
+    name: Notify iOS Build Status
+    needs: build-ios
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
       - name: Slack Notification (iOS)
-        if: always() # Luôn chạy thông báo dù build lỗi hay thành công
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          payload: |
-            {
-              "channel": "#deploy",
-              "username": "Edumate CI Build Bot",
-              "attachments": [
-                {
-                  "color": "${{ job.status == 'success' && 'good' || 'danger' }}",
-                  "title": "Trạng thái Build iOS",
-                  "text": "Kết quả kiểm tra build iOS: ${{ job.status }} :apple:"
-                }
-              ]
-            }
+        uses: rtCamp/action-slack-notify@v2   # Thống nhất dùng rtCamp thay vì slackapi
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_CHANNEL: 'deploy'
+          SLACK_COLOR: ${{ needs.build-ios.result == 'success' && 'good' || (needs.build-ios.result == 'failure' && 'danger') || 'warning' }}
+          SLACK_ICON_EMOJI: ':robot_face:'
+          SLACK_TITLE: "App Build - iOS ${{ needs.build-ios.result == 'success' && '✅ SUCCESS' || (needs.build-ios.result == 'failure' && '❌ FAILED') || '⚠️ CANCELLED/SKIPPED' }}"
+          SLACK_MESSAGE: |
+            *Status*: ${{ needs.build-ios.result }}
+            *Branch*: ${{ github.ref_name }}
+            *Commit*: ${{ github.sha }}
+            *Workflow*: ${{ github.workflow }}
+            *Run*: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SLACK_USERNAME: "Edumate CI Bot"

@@ -24,8 +24,14 @@ import 'package:flutter/material.dart';
 class EAppLayout extends StatelessWidget {
   final Widget body;
   final String? title;
+  final List<Widget>? actions;
 
-  const EAppLayout({super.key, required this.body, this.title});
+  const EAppLayout({
+    super.key,
+    required this.body,
+    this.title,
+    this.actions,
+  });
 
   // ── Modal thêm tài liệu ──────────────────────────────────────────────────
   void _showAddModal(BuildContext context) {
@@ -50,7 +56,7 @@ class EAppLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: EAppBar(title: title, showMenuIcon: true),
+      appBar: EAppBar(title: title, showMenuIcon: true, actions: actions),
       drawer: _AppDrawer(onAddDocument: () => _showAddModal(context)),
       body: body,
     );

@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Lấy các library của Flutter
         run: flutter pub get || true # Bỏ qua lỗi nếu chưa có Flutter (do Ubuntu không cài Flutter sẵn ở bước này, ta chỉ mượn repo)
@@ -28,6 +30,7 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
+          scanners: 'vuln,secret'
           severity: 'CRITICAL,HIGH'
 
       - name: Slack Notification (Android Security Scan)
