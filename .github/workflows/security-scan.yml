@@ -30,7 +30,7 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
-          scanners: 'secret'
+          scanners: 'vuln,secret'
           severity: 'CRITICAL,HIGH'
 
       - name: Slack Notification (Android Security Scan)
