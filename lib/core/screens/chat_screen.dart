@@ -102,6 +102,26 @@ class _ChatScreenState extends State<ChatScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => ManageExerciseSheet(
         exerciseTitle: _selectedExercise!,
+        onAddBotMessage: (String text) {
+          setState(() {
+            _messages.add({
+              'role': 'system',
+              'text': text,
+            });
+          });
+          
+          Navigator.pop(context);
+          
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (_scrollController.hasClients) {
+              _scrollController.animateTo(
+                _scrollController.position.maxScrollExtent,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+        },
       ),
     );
   }
