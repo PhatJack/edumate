@@ -5,39 +5,46 @@ description: Guidelines and patterns for refactoring Dart and Flutter code in th
 
 You are an elite **Flutter/Dart refactoring specialist** with deep expertise in writing clean, maintainable, and performant Flutter applications.
 
-
 ## When to use this skill
-
 
 ## Core Refactoring Patterns
 
 ### 1. Widget Extraction
+
 Extract complex or repetitive UI into smaller, reusable widgets.
+
 - **When**: A build method exceeds ~60 lines or a UI element is reused.
 - **Mechanism**: Use "Extract Widget" over "Extract Method" to benefit from const constructors and independent re-rendering.
 - **Location**: Place shared widgets in `lib/core/widgets` and screen-specific widgets in a `widgets/` subdirectory within the screen's directory.
 
 ### 2. Logic Separation (MVVM/Provider)
+
 Decouple business logic from the UI.
+
 - **When**: A widget contains complex state management or data fetching logic.
 - **Pattern**: Move logic to `ChangeNotifier` (Providers) in `lib/core/providers`.
 - **Flow**: UI (Widget) -> Provider -> Repository (optional) -> Service/Data Source.
 
 ### 3. Clean Imports
+
 - **Style**: Always use package imports (e.g., `import 'package:edumate/...'`) instead of relative imports for better consistency and to avoid issues with different root paths.
 - **Organization**: Sort imports: Core/Standard libraries first, then external packages, then project modules.
 
 ### 4. Performance Optimization
+
 - **Const Everything**: Use `const` constructors wherever possible to reduce rebuild costs.
 - **Selective Rebuilds**: Use `Consumer` or `Selector` from the `provider` package to rebuild only the necessary parts of the widget tree.
 
 ### 5. Edumate Specific Patterns
+
 - **Colors**: ONLY use colors declared in `lib/core/theme/theme.dart`. Access them using the `context.colors` extension from `lib/core/extensions/theme_extension.dart`. Avoid hardcoding hex values or using generic `Colors` constants.
-- **Layout**: Adhere to the 3-column layout (Desktop) or Sidebar/Overlay (Mobile) as specified in `EDUMMATE_FSD_en.md`.
+- **Layout**: Adhere to the 3-column layout (Desktop) or Sidebar/Overlay (Mobile) as specified in `EDUMATE_FSD_en.md`.
 - **Typography**: Follow the professional, minimal font and size standards.
 
 ### 6. Anti-Patterns to Refactor
+
 1. **Unnecessary Containers**:
+
 ```dart
 // BAD
 Container(
@@ -49,7 +56,9 @@ const Text('Hello')
 
 // Only use Container when you need decoration, padding, constraints, etc.
 ```
+
 2. **Heavy Work in build()**
+
 ```dart
 // BAD: Expensive operation in build
 @override
@@ -81,7 +90,9 @@ class _MyWidgetState extends State<MyWidget> {
   }
 }
 ```
+
 3. **Listener Lifecycle Issues**
+
 ```dart
 // BAD: Adding listener in build without proper cleanup
 @override
@@ -117,15 +128,19 @@ class _MyWidgetState extends State<MyWidget> {
 Always run validation tools after refactoring:
 
 ### Analysis
+
 ```powershell
 flutter analyze
 ```
+
 Fix all errors and warnings before committing.
 
 ### Automatic Fixes
+
 ```powershell
 dart fix --apply
 ```
+
 Use this to automatically resolve common linting issues like "prefer const" or "unused imports".
 
 ## Verification Checklist
@@ -134,5 +149,5 @@ Use this to automatically resolve common linting issues like "prefer const" or "
 - [ ] Is the business logic separated from the build methods?
 - [ ] Are reusable UI elements extracted into widgets?
 - [ ] Are `const` constructors used where possible?
-- [ ] Does the UI still match the design specs in `EDUMMATE_FSD_en.md`?
+- [ ] Does the UI still match the design specs in `EDUMATE_FSD_en.md`?
 - [ ] (If UI change) Have you tested on both Mobile (Overlay) and Desktop (3-Column)?
