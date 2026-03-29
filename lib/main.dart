@@ -1,5 +1,6 @@
 import 'package:edumate/core/config/app_config.dart';
 import 'package:edumate/core/providers/documents_provider.dart';
+import 'package:edumate/core/providers/profile_provider.dart';
 import 'package:edumate/core/theme/theme.dart';
 import 'package:edumate/data/services/api_service.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -30,10 +31,19 @@ Future<void> main() async {
 
   ApiService();
   final documentsNotifier = ValueNotifier<List<DocumentItem>>([]);
-  runApp(DocumentsProvider(
-    notifier: documentsNotifier,
-    child: const MyApp(),
-  ));
+  final profileNotifier = ValueNotifier<ProfileSessionState>(
+    const ProfileSessionState.initial(),
+  );
+
+  runApp(
+    ProfileProvider(
+      notifier: profileNotifier,
+      child: DocumentsProvider(
+        notifier: documentsNotifier,
+        child: const MyApp(),
+      ),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

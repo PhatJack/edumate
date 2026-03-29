@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:edumate/core/constants/images.dart';
 import 'package:edumate/core/config/app_config.dart';
 import 'package:edumate/core/extensions/theme_extension.dart';
+import 'package:edumate/core/providers/profile_provider.dart';
 import 'package:edumate/core/constants/sizes.dart';
 import 'package:edumate/data/repositories/auth_repository.dart';
 import 'package:edumate/data/services/api_service.dart';
@@ -21,6 +24,26 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthRepository _authRepository = AuthRepository.create();
   late final GoogleSignIn _googleSignIn;
   bool _isGoogleSigningIn = false;
+
+  String? _extractJwtAudience(String jwt) {
+    final parts = jwt.split('.');
+    if (parts.length < 2) {
+      return null;
+    }
+
+    final normalized = base64Url.normalize(parts[1]);
+    final payloadJson = utf8.decode(base64Url.decode(normalized));
+    final payload = jsonDecode(payloadJson);
+    if (payload is! Map<String, dynamic>) {
+      return null;
+    }
+
+    final aud = payload['aud'];
+    if (aud is String && aud.trim().isNotEmpty) {
+      return aud.trim();
+    }
+    return null;
+  }
 
   bool get _canUseGoogleSignIn {
     if (!kIsWeb) {
@@ -54,7 +77,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       UserCredential firebaseCredential;
-      String? backendIdToken;
 
       if (kIsWeb) {
         final provider = GoogleAuthProvider()
@@ -63,11 +85,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
         firebaseCredential =
             await FirebaseAuth.instance.signInWithPopup(provider);
-
-        final oauthCredential = firebaseCredential.credential;
-        if (oauthCredential is OAuthCredential) {
-          backendIdToken = oauthCredential.idToken;
-        }
       } else {
         final GoogleSignInAccount? account = await _googleSignIn.signIn();
         if (account == null) {
@@ -82,18 +99,37 @@ class _LoginScreenState extends State<LoginScreen> {
 
         firebaseCredential =
             await FirebaseAuth.instance.signInWithCredential(credential);
-        backendIdToken = auth.idToken;
       }
 
-      backendIdToken ??= await firebaseCredential.user?.getIdToken(true);
+      // Backend verifies Firebase ID token (aud = Firebase project id),
+      // so we must send token issued by FirebaseAuth user session.
+      final firebaseUser = FirebaseAuth.instance.currentUser ?? firebaseCredential.user;
+      final backendIdToken = await firebaseUser?.getIdToken(true);
 
       if (backendIdToken == null || backendIdToken.isEmpty) {
         throw Exception('Firebase token is missing after Google sign-in.');
       }
 
+      final expectedAudience = AppConfig.firebaseProjectId;
+      final tokenAudience = _extractJwtAudience(backendIdToken);
+      if (expectedAudience != null &&
+          expectedAudience.isNotEmpty &&
+          tokenAudience != expectedAudience) {
+        throw Exception(
+          'Firebase token audience mismatch. Expected "$expectedAudience" but got "$tokenAudience".',
+        );
+      }
+
       final tokenResponse =
           await _authRepository.signInWithGoogle(backendIdToken);
       ApiService().setBearerToken(tokenResponse.accessToken);
+
+      if (mounted) {
+        final profileNotifier = ProfileProvider.ofOrNull(context, listen: false);
+        if (profileNotifier != null) {
+          await ProfileProvider.refreshNotifier(profileNotifier);
+        }
+      }
 
       if (!mounted) {
         return;
@@ -210,7 +246,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? (_isGoogleSigningIn
                             ? 'Đang đăng nhập...'
                             : 'Đăng nhập với Google')
-                        : 'Thieu cau hinh Firebase',
+                        : 'Thiếu cấu hình Firebase',
                   ),
                   onPressed: _isGoogleSigningIn
                       ? null
@@ -220,13 +256,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-
-              /*
-              Legacy login flows are temporarily disabled by requirement:
-              - Email/password form
-              - Register CTA
-              Keep this block as reference while Google-only auth is active.
-              */
             ],
           ),
         ),

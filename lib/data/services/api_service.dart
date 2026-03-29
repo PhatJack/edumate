@@ -1,3 +1,4 @@
+import 'package:dio/browser.dart';
 import 'package:edumate/core/config/app_config.dart';
 import 'package:dio/dio.dart';
 
@@ -17,6 +18,8 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
       ),
     );
+
+    (_dio.httpClientAdapter as BrowserHttpClientAdapter).withCredentials = true;
 
     _dio.interceptors.add(
       InterceptorsWrapper(
@@ -104,10 +107,7 @@ class ApiService {
   }
 
   /// DELETE request
-  Future<Response> delete(
-    String url, {
-    Map<String, dynamic>? headers,
-  }) async {
+  Future<Response> delete(String url, {Map<String, dynamic>? headers}) async {
     return _dio.delete(
       url,
       options: headers != null ? Options(headers: headers) : null,

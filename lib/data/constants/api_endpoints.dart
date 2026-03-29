@@ -23,7 +23,7 @@ class ApiEndpointSpec {
 }
 
 abstract final class ApiEndpoints {
-  static const String basePrefix = '/api/v1';
+  static const String basePrefix = '';
 
   static const String authGoogle = '$basePrefix/auth/google';
   static const String authMe = '$basePrefix/auth/me';
@@ -62,28 +62,28 @@ abstract final class ApiEndpoints {
       domain: 'auth',
       name: 'googleSignIn',
       method: HttpMethod.post,
-      pathTemplate: '/api/v1/auth/google',
+      pathTemplate: '/auth/google',
       requiresAuth: false,
     ),
     ApiEndpointSpec(
       domain: 'auth',
       name: 'me',
       method: HttpMethod.get,
-      pathTemplate: '/api/v1/auth/me',
+      pathTemplate: '/auth/me',
       requiresAuth: true,
     ),
     ApiEndpointSpec(
       domain: 'profile',
       name: 'profileMe',
       method: HttpMethod.get,
-      pathTemplate: '/api/v1/profile/me',
+      pathTemplate: '/profile/me',
       requiresAuth: true,
     ),
     ApiEndpointSpec(
       domain: 'profile',
       name: 'childrenList',
       method: HttpMethod.get,
-      pathTemplate: '/api/v1/profile/me/children',
+      pathTemplate: '/profile/me/children',
       requiresAuth: true,
       isPaginated: true,
     ),
@@ -91,7 +91,7 @@ abstract final class ApiEndpoints {
       domain: 'documents',
       name: 'documentsList',
       method: HttpMethod.get,
-      pathTemplate: '/api/v1/documents',
+      pathTemplate: '/documents',
       requiresAuth: true,
       isPaginated: true,
     ),
@@ -99,7 +99,7 @@ abstract final class ApiEndpoints {
       domain: 'documents',
       name: 'importDrive',
       method: HttpMethod.post,
-      pathTemplate: '/api/v1/documents/import-drive',
+      pathTemplate: '/documents/import-drive',
       requiresAuth: true,
       isMockOrStub: true,
     ),
@@ -107,7 +107,7 @@ abstract final class ApiEndpoints {
       domain: 'chat',
       name: 'chatSend',
       method: HttpMethod.post,
-      pathTemplate: '/api/v1/documents/{document_id}/chat',
+      pathTemplate: '/documents/{document_id}/chat',
       requiresAuth: true,
       isMockOrStub: true,
     ),
@@ -115,7 +115,7 @@ abstract final class ApiEndpoints {
       domain: 'uploads',
       name: 'globalUpload',
       method: HttpMethod.post,
-      pathTemplate: '/api/v1/uploads',
+      pathTemplate: '/uploads',
       requiresAuth: true,
       isMultipart: true,
       isMockOrStub: true,

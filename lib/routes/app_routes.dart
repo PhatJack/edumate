@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../core/screens/home_screen.dart';
-import '../core/screens/profile_screen.dart';
 import '../core/screens/details_screen.dart';
 import '../core/screens/login_screen.dart';
 import '../core/screens/register_screen.dart';
@@ -11,8 +10,6 @@ import '../core/screens/chat_screen.dart';
 class AppRoutes {
   // Định nghĩa tên các routes
   static const String home = '/';
-  static const String profile = '/profile';
-  static const String settings = '/settings';
   static const String details = '/details';
   static const String login = '/login';
   static const String register = '/register';
@@ -23,7 +20,6 @@ class AppRoutes {
   static Map<String, WidgetBuilder> getRoutes() {
     return {
       home: (context) => const HomeScreen(),
-      profile: (context) => const ProfileScreen(),
       details: (context) => const DetailsScreen(),
       login: (context) => const LoginScreen(),
       register: (context) => const RegisterScreen(),
@@ -37,8 +33,6 @@ class AppRoutes {
     switch (settings.name) {
       case home:
         return MaterialPageRoute(builder: (context) => const HomeScreen());
-      case profile:
-        return MaterialPageRoute(builder: (context) => const ProfileScreen());
       case details:
         return MaterialPageRoute(
           builder: (context) => const DetailsScreen(),
