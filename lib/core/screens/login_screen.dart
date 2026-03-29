@@ -5,6 +5,7 @@ import 'package:edumate/core/constants/sizes.dart';
 import 'package:edumate/data/repositories/auth_repository.dart';
 import 'package:edumate/data/services/api_service.dart';
 import 'package:edumate/routes/app_routes.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -25,7 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!kIsWeb) {
       return true;
     }
-    return AppConfig.googleWebClientId != null;
+    return AppConfig.hasFirebaseWebConfig;
   }
 
   @override
@@ -52,19 +53,46 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final GoogleSignInAccount? account = await _googleSignIn.signIn();
-      if (account == null) {
-        return;
+      UserCredential firebaseCredential;
+      String? backendIdToken;
+
+      if (kIsWeb) {
+        final provider = GoogleAuthProvider()
+          ..addScope('email')
+          ..addScope('profile');
+
+        firebaseCredential =
+            await FirebaseAuth.instance.signInWithPopup(provider);
+
+        final oauthCredential = firebaseCredential.credential;
+        if (oauthCredential is OAuthCredential) {
+          backendIdToken = oauthCredential.idToken;
+        }
+      } else {
+        final GoogleSignInAccount? account = await _googleSignIn.signIn();
+        if (account == null) {
+          return;
+        }
+
+        final GoogleSignInAuthentication auth = await account.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: auth.accessToken,
+          idToken: auth.idToken,
+        );
+
+        firebaseCredential =
+            await FirebaseAuth.instance.signInWithCredential(credential);
+        backendIdToken = auth.idToken;
       }
 
-      final GoogleSignInAuthentication auth = await account.authentication;
-      final String? idToken = auth.idToken;
+      backendIdToken ??= await firebaseCredential.user?.getIdToken(true);
 
-      if (idToken == null || idToken.isEmpty) {
-        throw Exception('Google ID token is missing.');
+      if (backendIdToken == null || backendIdToken.isEmpty) {
+        throw Exception('Firebase token is missing after Google sign-in.');
       }
 
-      final tokenResponse = await _authRepository.signInWithGoogle(idToken);
+      final tokenResponse =
+          await _authRepository.signInWithGoogle(backendIdToken);
       ApiService().setBearerToken(tokenResponse.accessToken);
 
       if (!mounted) {
@@ -79,12 +107,14 @@ class _LoginScreenState extends State<LoginScreen> {
       final message = e.toString();
       final normalized = message.toLowerCase();
       final isWebGoogleConfigIssue = kIsWeb &&
-          (normalized.contains('signin') || normalized.contains('signln'));
+          (normalized.contains('signin') ||
+              normalized.contains('signln') ||
+              normalized.contains('firebase'));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             isWebGoogleConfigIssue
-                ? 'Google Sign-In web is not configured correctly. Check GOOGLE_WEB_CLIENT_ID and Google OAuth Web setup.'
+                ? 'Google Sign-In web chua duoc cau hinh dung. Vui long kiem tra FIREBASE_* trong file .env.'
                 : 'Google sign-in failed: $e',
           ),
         ),
@@ -98,13 +128,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _handleTemporaryLogin() {
+  void _handleGoogleConfigMissing() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Temporary login enabled: opening Home screen.'),
+        content: Text('Thieu cau hinh Firebase web trong .env.')
       ),
     );
-    Navigator.pushReplacementNamed(context, AppRoutes.home);
   }
 
   @override
@@ -143,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Text(
                 _canUseGoogleSignIn
                     ? 'Chỉ hỗ trợ đăng nhập bằng Google'
-                    : 'Chưa có GOOGLE_WEB_CLIENT_ID, đang dùng đăng nhập tạm để xem giao diện',
+                    : 'Thieu cau hinh Firebase web, khong the dang nhap Google',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: context.colors.onSurfaceVariant,
                 ),
@@ -181,13 +210,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? (_isGoogleSigningIn
                             ? 'Đang đăng nhập...'
                             : 'Đăng nhập với Google')
-                        : 'Đăng nhập tạm thời',
+                        : 'Thieu cau hinh Firebase',
                   ),
                   onPressed: _isGoogleSigningIn
                       ? null
                       : (_canUseGoogleSignIn
                           ? _handleGoogleSignIn
-                          : _handleTemporaryLogin),
+                          : _handleGoogleConfigMissing),
                 ),
               ),
               const SizedBox(height: 12),

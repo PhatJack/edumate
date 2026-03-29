@@ -1,10 +1,33 @@
+import 'package:edumate/core/config/app_config.dart';
 import 'package:edumate/core/providers/documents_provider.dart';
 import 'package:edumate/core/theme/theme.dart';
 import 'package:edumate/data/services/api_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 import 'routes/app_routes.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // Allow app to run with fallback config for local/test scenarios.
+  }
+
+  if (kIsWeb) {
+    final webOptions = AppConfig.firebaseWebOptions;
+    if (webOptions == null) {
+      throw StateError(
+        'Missing Firebase web config. Set FIREBASE_* (or VITE_FIREBASE_*) in .env.',
+      );
+    }
+    await Firebase.initializeApp(options: webOptions);
+  } else {
+    await Firebase.initializeApp();
+  }
+
   ApiService();
   final documentsNotifier = ValueNotifier<List<DocumentItem>>([]);
   runApp(DocumentsProvider(
