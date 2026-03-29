@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:edumate/core/config/app_config.dart';
 import 'package:dio/dio.dart';
 
 class ApiService {
@@ -6,10 +6,12 @@ class ApiService {
   factory ApiService() => _instance;
 
   late final Dio _dio;
+  String? _bearerToken;
 
   ApiService._internal() {
     _dio = Dio(
       BaseOptions(
+        baseUrl: AppConfig.apiBaseUrl,
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 60),
         headers: {'Content-Type': 'application/json'},
@@ -19,8 +21,9 @@ class ApiService {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
-          // TODO: Gắn API key hoặc token ở đây nếu cần
-          // options.queryParameters['key'] = AppConstants.geminiApiKey;
+          if (_bearerToken != null && _bearerToken!.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $_bearerToken';
+          }
           handler.next(options);
         },
         onResponse: (response, handler) {
@@ -35,6 +38,16 @@ class ApiService {
   }
 
   Dio get client => _dio;
+
+  String get baseUrl => _dio.options.baseUrl;
+
+  void setBearerToken(String token) {
+    _bearerToken = token;
+  }
+
+  void clearBearerToken() {
+    _bearerToken = null;
+  }
 
   /// GET request
   Future<Response> get(
@@ -62,27 +75,42 @@ class ApiService {
     );
   }
 
-  /// POST request với file (upload ảnh, PDF)
-  Future<Response> uploadFile(
+  /// POST request with FormData (file upload)
+  Future<Response> postFormData(
     String url,
-    File file, {
-    String fieldName = 'file',
-    Map<String, dynamic>? extraFields,
+    FormData formData, {
     Map<String, dynamic>? headers,
   }) async {
-    final formData = FormData.fromMap({
-      fieldName: await MultipartFile.fromFile(
-        file.path,
-        filename: file.path.split('/').last,
-      ),
-      ...?extraFields,
-    });
     return _dio.post(
       url,
       data: formData,
       options: Options(
         headers: {'Content-Type': 'multipart/form-data', ...?headers},
       ),
+    );
+  }
+
+  /// PATCH request (JSON)
+  Future<Response> patch(
+    String url, {
+    dynamic data,
+    Map<String, dynamic>? headers,
+  }) async {
+    return _dio.patch(
+      url,
+      data: data,
+      options: headers != null ? Options(headers: headers) : null,
+    );
+  }
+
+  /// DELETE request
+  Future<Response> delete(
+    String url, {
+    Map<String, dynamic>? headers,
+  }) async {
+    return _dio.delete(
+      url,
+      options: headers != null ? Options(headers: headers) : null,
     );
   }
 

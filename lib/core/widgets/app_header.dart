@@ -22,6 +22,7 @@ class EAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool? showBackIcon;
   final List<Widget>? actions;
   final PreferredSizeWidget? bottom;
+  final VoidCallback? onPlayPressed;
 
   const EAppBar({
     super.key,
@@ -30,6 +31,7 @@ class EAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.showBackIcon,
     this.actions,
     this.bottom,
+    this.onPlayPressed,
   });
 
   @override
@@ -53,7 +55,13 @@ class EAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
         child: IconButton(
           icon: Icon(Icons.play_circle_outline, color: colorScheme.primary),
-          onPressed: () {},
+          onPressed: onPlayPressed ?? () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Tour hien tai chua duoc cai dat o man hinh nay.'),
+              ),
+            );
+          },
           iconSize: 22,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
@@ -100,7 +108,7 @@ class EAppBar extends StatelessWidget implements PreferredSizeWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (bottom != null) bottom!,
+            ...?bottom == null ? null : [bottom!],
             Container(color: colorScheme.outlineVariant.withValues(alpha: 0.5), height: 0.5),
           ],
         ),

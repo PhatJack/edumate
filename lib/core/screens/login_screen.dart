@@ -1,7 +1,13 @@
 import 'package:edumate/core/constants/images.dart';
+import 'package:edumate/core/config/app_config.dart';
 import 'package:edumate/core/extensions/theme_extension.dart';
-import 'package:flutter/material.dart';
 import 'package:edumate/core/constants/sizes.dart';
+import 'package:edumate/data/repositories/auth_repository.dart';
+import 'package:edumate/data/services/api_service.dart';
+import 'package:edumate/routes/app_routes.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,18 +17,94 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailFocus = FocusNode();
-  final _passwordFocus = FocusNode();
-  String email = '';
-  String password = '';
-  bool _obscurePassword = true;
+  final AuthRepository _authRepository = AuthRepository.create();
+  late final GoogleSignIn _googleSignIn;
+  bool _isGoogleSigningIn = false;
+
+  bool get _canUseGoogleSignIn {
+    if (!kIsWeb) {
+      return true;
+    }
+    return AppConfig.googleWebClientId != null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _googleSignIn = GoogleSignIn(
+      scopes: const <String>['email', 'profile'],
+      clientId: kIsWeb ? AppConfig.googleWebClientId : null,
+    );
+  }
 
   @override
   void dispose() {
-    _emailFocus.dispose();
-    _passwordFocus.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    if (_isGoogleSigningIn) {
+      return;
+    }
+
+    setState(() {
+      _isGoogleSigningIn = true;
+    });
+
+    try {
+      final GoogleSignInAccount? account = await _googleSignIn.signIn();
+      if (account == null) {
+        return;
+      }
+
+      final GoogleSignInAuthentication auth = await account.authentication;
+      final String? idToken = auth.idToken;
+
+      if (idToken == null || idToken.isEmpty) {
+        throw Exception('Google ID token is missing.');
+      }
+
+      final tokenResponse = await _authRepository.signInWithGoogle(idToken);
+      ApiService().setBearerToken(tokenResponse.accessToken);
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pushReplacementNamed(context, AppRoutes.home);
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      final message = e.toString();
+      final normalized = message.toLowerCase();
+      final isWebGoogleConfigIssue = kIsWeb &&
+          (normalized.contains('signin') || normalized.contains('signln'));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isWebGoogleConfigIssue
+                ? 'Google Sign-In web is not configured correctly. Check GOOGLE_WEB_CLIENT_ID and Google OAuth Web setup.'
+                : 'Google sign-in failed: $e',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGoogleSigningIn = false;
+        });
+      }
+    }
+  }
+
+  void _handleTemporaryLogin() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Temporary login enabled: opening Home screen.'),
+      ),
+    );
+    Navigator.pushReplacementNamed(context, AppRoutes.home);
   }
 
   @override
@@ -57,198 +139,65 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ],
               ),
-              Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    const SizedBox(height: ESizes.lg),
-                    TextFormField(
-                      focusNode: _emailFocus,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        labelText: 'Email',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(ESizes.radiusMd),
-                        ),
-                        floatingLabelBehavior: FloatingLabelBehavior.never,
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Vui lòng nhập email';
-                        }
-                        if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                          return 'Email không hợp lệ';
-                        }
-                        return null;
-                      },
-                      textInputAction: TextInputAction.next,
-                      onFieldSubmitted: (_) {
-                        FocusScope.of(context).requestFocus(_passwordFocus);
-                      },
-                      onSaved: (value) => email = value ?? '',
+              const SizedBox(height: ESizes.lg),
+              Text(
+                _canUseGoogleSignIn
+                    ? 'Chỉ hỗ trợ đăng nhập bằng Google'
+                    : 'Chưa có GOOGLE_WEB_CLIENT_ID, đang dùng đăng nhập tạm để xem giao diện',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: context.colors.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: ESizes.md),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: ESizes.sm,
                     ),
-                    const SizedBox(height: ESizes.sm),
-                    TextFormField(
-                      focusNode: _passwordFocus,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        labelText: 'Mật khẩu',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(ESizes.radiusMd),
-                        ),
-                        floatingLabelBehavior: FloatingLabelBehavior.never,
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                      ),
-                      obscureText: _obscurePassword,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Vui lòng nhập mật khẩu';
-                        }
-                        if (value.length < 8) {
-                          return 'Mật khẩu phải từ 8 ký tự';
-                        }
-                        return null;
-                      },
-                      onFieldSubmitted: (_) {
-                        FocusScope.of(context).unfocus();
-                        if (_formKey.currentState!.validate()) {
-                          _formKey.currentState!.save();
-                          // TODO: Xử lý đăng nhập
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Đăng nhập thành công!'),
-                            ),
-                          );
-                        }
-                      },
-                      onSaved: (value) => password = value ?? '',
-                    ),
-                    const SizedBox(height: ESizes.sm),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: ESizes.sm,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              ESizes.radiusMd,
-                            ),
-                          ),
-                          textStyle: context.text.titleMedium,
-                        ),
-                        onPressed: () {
-                          if (_formKey.currentState!.validate()) {
-                            _formKey.currentState!.save();
-                            // TODO: Xử lý đăng nhập
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Đăng nhập thành công!'),
-                              ),
-                            );
-                            Navigator.pushReplacementNamed(context, '/');
-                          }
-                        },
-                        child: const Text('Đăng nhập'),
+                    side: BorderSide(color: context.colors.outline),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        ESizes.radiusMd,
                       ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Chưa có tài khoản? ',
-                          style: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(
-                                color: context.colors.onSurfaceVariant,
-                              ),
-                        ),
-                        TextButton(
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            textStyle: Theme.of(context).textTheme.labelLarge,
-                          ),
-                          onPressed: () {
-                            Navigator.pushReplacementNamed(
-                              context,
-                              '/register',
-                            );
-                          },
-                          child: Text(
-                            'Đăng ký',
-                            style: TextStyle(
-                              color: context.colors.primary,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // ── Divider ─────────────────────────────────────
-                    const SizedBox(height: ESizes.sm),
-                    Row(
-                      children: [
-                        const Expanded(child: Divider()),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            'Hoặc đăng nhập với',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: context.colors.onSurfaceVariant,
-                                ),
-                          ),
-                        ),
-                        const Expanded(child: Divider()),
-                      ],
-                    ),
-                    const SizedBox(height: ESizes.md),
-
-                    // ── Google button ────────────────────────────────
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: ESizes.sm,
-                          ),
-                          side: BorderSide(color: context.colors.outline),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              ESizes.radiusMd,
-                            ),
-                          ),
-                          textStyle: context.text.titleMedium,
-                        ),
-                        icon: Image.asset(
+                    textStyle: context.text.titleMedium,
+                  ),
+                  icon: _isGoogleSigningIn
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Image.asset(
                           EImages.googleLogo,
                           height: 20,
                           width: 20,
                         ),
-                        label: const Text('Đăng nhập với Google'),
-                        onPressed: () {
-                          // TODO: Xử lý đăng nhập Google
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+                  label: Text(
+                    _canUseGoogleSignIn
+                        ? (_isGoogleSigningIn
+                            ? 'Đang đăng nhập...'
+                            : 'Đăng nhập với Google')
+                        : 'Đăng nhập tạm thời',
+                  ),
+                  onPressed: _isGoogleSigningIn
+                      ? null
+                      : (_canUseGoogleSignIn
+                          ? _handleGoogleSignIn
+                          : _handleTemporaryLogin),
                 ),
               ),
+              const SizedBox(height: 12),
+
+              /*
+              Legacy login flows are temporarily disabled by requirement:
+              - Email/password form
+              - Register CTA
+              Keep this block as reference while Google-only auth is active.
+              */
             ],
           ),
         ),

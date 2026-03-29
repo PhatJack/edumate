@@ -1,9 +1,11 @@
 import 'package:edumate/core/providers/documents_provider.dart';
 import 'package:edumate/core/theme/theme.dart';
+import 'package:edumate/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'routes/app_routes.dart';
 
 void main() {
+  ApiService();
   final documentsNotifier = ValueNotifier<List<DocumentItem>>([]);
   runApp(DocumentsProvider(
     notifier: documentsNotifier,
@@ -23,7 +25,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Routing Demo',
+      title: 'EduMate',
       theme: wgerLightTheme,
       // Sử dụng onGenerateRoute để hỗ trợ truyền arguments qua named routes
       onGenerateRoute: AppRoutes.onGenerateRoute,

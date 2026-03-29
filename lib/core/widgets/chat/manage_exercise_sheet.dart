@@ -4,11 +4,17 @@ import 'package:flutter/material.dart';
 class ManageExerciseSheet extends StatefulWidget {
   final String exerciseTitle;
   final Function(String)? onAddBotMessage;
+  final GlobalKey? detailsSectionKey;
+  final GlobalKey? referenceSolutionSectionKey;
+  final GlobalKey? extendedPracticeSectionKey;
 
   const ManageExerciseSheet({
     super.key,
     required this.exerciseTitle,
     this.onAddBotMessage,
+    this.detailsSectionKey,
+    this.referenceSolutionSectionKey,
+    this.extendedPracticeSectionKey,
   });
 
   @override
@@ -93,6 +99,7 @@ class _ManageExerciseSheetState extends State<ManageExerciseSheet> {
 
           // Exercise Details section
           Row(
+            key: widget.detailsSectionKey,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
@@ -211,6 +218,7 @@ class _ManageExerciseSheetState extends State<ManageExerciseSheet> {
 
           // Reference Solution section
           Row(
+            key: widget.referenceSolutionSectionKey,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
@@ -360,6 +368,7 @@ class _ManageExerciseSheetState extends State<ManageExerciseSheet> {
 
           // Extended Practice section
           Row(
+            key: widget.extendedPracticeSectionKey,
             children: [
               Icon(Icons.sync, color: colorScheme.primary, size: 20),
               const SizedBox(width: 8),
