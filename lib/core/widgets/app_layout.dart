@@ -1,13 +1,20 @@
 import 'package:edumate/core/constants/sizes.dart';
 import 'package:edumate/core/exceptions/api_exception.dart';
 import 'package:edumate/core/providers/documents_provider.dart';
+import 'package:edumate/core/providers/documents_state_provider.dart';
 import 'package:edumate/core/providers/profile_provider.dart';
 import 'package:edumate/data/models/profile_models.dart';
+import 'package:edumate/data/models/document_models.dart';
+import 'package:edumate/data/repositories/documents_repository.dart';
 import 'package:edumate/data/repositories/profile_repository.dart';
 import 'package:edumate/core/widgets/app_header.dart';
 import 'package:edumate/core/widgets/confirm_action_modal.dart';
 import 'package:edumate/core/widgets/guided_tour_modal.dart';
+import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 /// Layout dùng chung cho tất cả màn hình (trừ Login, Register, Intro).
 ///
@@ -27,7 +34,7 @@ import 'package:flutter/material.dart';
 ///   }
 /// }
 /// ```
-class EAppLayout extends StatelessWidget {
+class EAppLayout extends ConsumerWidget {
   final Widget body;
   final String? title;
   final List<Widget>? actions;
@@ -218,9 +225,166 @@ class EAppLayout extends StatelessWidget {
     await closeDrawerIfOpen();
   }
 
+  String? _resolveDefaultChildId(BuildContext context) {
+    final profileState = ProfileProvider.of(context, listen: false).value;
+    if (profileState.children.isEmpty) {
+      return null;
+    }
+    return profileState.children.first.id;
+  }
+
+  IconData _iconForDocumentKind(String kind) {
+    return switch (kind) {
+      'pdf' => Icons.picture_as_pdf_outlined,
+      'camera' => Icons.camera_alt_outlined,
+      'image' => Icons.image_outlined,
+      'drive' => Icons.storage_outlined,
+      _ => Icons.description_outlined,
+    };
+  }
+
+  String _titleFromFilename(String filename) {
+    final dotIndex = filename.lastIndexOf('.');
+    if (dotIndex <= 0) {
+      return filename;
+    }
+    return filename.substring(0, dotIndex);
+  }
+
+  Future<_PickedUpload?> _pickUploadForOption(_SourceOption option) async {
+    if (option.uploadSource == _UploadSource.pdf) {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf'],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) {
+        return null;
+      }
+
+      final file = result.files.first;
+      MultipartFile multipart;
+      if (file.bytes != null) {
+        multipart = MultipartFile.fromBytes(
+          file.bytes!,
+          filename: file.name,
+        );
+      } else if (file.path != null) {
+        multipart = await MultipartFile.fromFile(
+          file.path!,
+          filename: file.name,
+        );
+      } else {
+        return null;
+      }
+
+      return _PickedUpload(
+        file: multipart,
+        title: _titleFromFilename(file.name),
+      );
+    }
+
+    if (option.uploadSource == _UploadSource.camera ||
+        option.uploadSource == _UploadSource.gallery) {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: option.uploadSource == _UploadSource.camera
+            ? ImageSource.camera
+            : ImageSource.gallery,
+        imageQuality: 95,
+      );
+
+      if (picked == null) {
+        return null;
+      }
+
+      final bytes = await picked.readAsBytes();
+      final filename = picked.name.isEmpty
+          ? 'document-${DateTime.now().millisecondsSinceEpoch}.jpg'
+          : picked.name;
+      return _PickedUpload(
+        file: MultipartFile.fromBytes(bytes, filename: filename),
+        title: _titleFromFilename(filename),
+      );
+    }
+
+    return null;
+  }
+
+  Future<void> _handleSourceSelected(
+    BuildContext context,
+    WidgetRef ref,
+    _SourceOption option,
+  ) async {
+    if (option.uploadSource == _UploadSource.unsupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Google Drive sẽ được hỗ trợ ở bản sau.')),
+      );
+      return;
+    }
+
+    final picked = await _pickUploadForOption(option);
+    if (picked == null || !context.mounted) {
+      return;
+    }
+
+    final repository = DocumentsRepository.create();
+    final selectedChildId = _resolveDefaultChildId(context);
+
+    try {
+      final created = await repository.createDocument(
+        DocumentCreateRequest(
+          kind: option.kind,
+          title: picked.title,
+          childId: selectedChildId,
+        ),
+      );
+
+      await repository.uploadDocumentFile(created.id, picked.file);
+
+      if (!context.mounted) {
+        return;
+      }
+
+        await ref
+          .read(documentsListProvider.notifier)
+          .loadDocuments(childId: selectedChildId, force: true);
+
+      if (!context.mounted) {
+        return;
+      }
+
+      final navigator = Navigator.of(context);
+      navigator.pop();
+      navigator.pushNamed(
+        '/chat',
+        arguments: {
+          'id': created.id,
+          'title': created.title,
+          'icon': _iconForDocumentKind(created.kind),
+        },
+      );
+    } on ApiException catch (e) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không thể tạo tài liệu: $e')),
+      );
+    }
+  }
+
   // ── Modal thêm tài liệu ──────────────────────────────────────────────────
   Future<void> _showAddModal(
     BuildContext context, {
+    required WidgetRef ref,
     DrawerTourController? tourController,
   }) async {
     // Ngăn chặn mở modal khi đã có modal add document khác đang mở
@@ -237,13 +401,8 @@ class EAppLayout extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AddDocumentModal(
-        onSelected: (doc) {
-          DocumentsProvider.add(context, doc);
-          Navigator.of(context).pop(); // đóng modal
-          Navigator.of(context).pushNamed(
-            '/chat',
-            arguments: {'title': doc.title, 'icon': doc.icon},
-          );
+        onSelected: (option) {
+          _handleSourceSelected(context, ref, option);
         },
       ),
     );
@@ -254,10 +413,14 @@ class EAppLayout extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (drawerTourController != null) {
       drawerTourController!.openAddDocumentModal = () async {
-        await _showAddModal(context, tourController: drawerTourController);
+        await _showAddModal(
+          context,
+          ref: ref,
+          tourController: drawerTourController,
+        );
       };
       drawerTourController!.closeAddDocumentModal = () async {
         if (!(drawerTourController!.isAddDocumentModalOpen.value)) {
@@ -278,7 +441,7 @@ class EAppLayout extends StatelessWidget {
         onPlayPressed: onPlayPressed ?? () => _runDefaultTour(context),
       ),
       drawer: _AppDrawer(
-        onAddDocument: () => _showAddModal(context),
+        onAddDocument: () => _showAddModal(context, ref: ref),
         tourAnchors: drawerTourAnchors,
         tourController: drawerTourController,
       ),
@@ -323,7 +486,7 @@ class DrawerTourController {
 
 // ─── Drawer ───────────────────────────────────────────────────────────────────
 
-class _AppDrawer extends StatefulWidget {
+class _AppDrawer extends ConsumerStatefulWidget {
   final VoidCallback onAddDocument;
   final DrawerTourAnchors? tourAnchors;
   final DrawerTourController? tourController;
@@ -335,10 +498,10 @@ class _AppDrawer extends StatefulWidget {
   });
 
   @override
-  State<_AppDrawer> createState() => _AppDrawerState();
+  ConsumerState<_AppDrawer> createState() => _AppDrawerState();
 }
 
-class _AppDrawerState extends State<_AppDrawer> {
+class _AppDrawerState extends ConsumerState<_AppDrawer> {
   List<Child> _children = const [];
   String? _selectedChildId;
   String? _parentFullName;
@@ -354,6 +517,9 @@ class _AppDrawerState extends State<_AppDrawer> {
   void initState() {
     super.initState();
     _bindTourController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(documentsListProvider.notifier).loadDocuments(force: true);
+    });
   }
 
   @override
@@ -408,6 +574,8 @@ class _AppDrawerState extends State<_AppDrawer> {
             .join(' ')
             .trim();
 
+    final previousSelectedChildId = _selectedChildId;
+
     setState(() {
       _isProfileLoading = state.isLoading;
       _profileError = state.errorMessage;
@@ -422,6 +590,12 @@ class _AppDrawerState extends State<_AppDrawer> {
         _selectedChildId = _children.first.id;
       }
     });
+
+    if (previousSelectedChildId != _selectedChildId) {
+      ref
+          .read(documentsListProvider.notifier)
+          .loadDocuments(childId: _selectedChildId, force: true);
+    }
   }
 
   void _bindTourController() {
@@ -499,6 +673,7 @@ class _AppDrawerState extends State<_AppDrawer> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final documentsState = ref.watch(documentsListProvider);
 
     return Drawer(
       backgroundColor: colorScheme.surface,
@@ -629,9 +804,28 @@ class _AppDrawerState extends State<_AppDrawer> {
 
             // ── Danh sách tài liệu động ─────────────────────────────────────
             Expanded(
-              child: ValueListenableBuilder<List<DocumentItem>>(
-                valueListenable: DocumentsProvider.of(context),
-                builder: (context, docs, _) {
+              child: Builder(
+                builder: (context) {
+                  final docs = documentsState.items;
+                  if (documentsState.isLoading && docs.isEmpty) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (documentsState.error != null && docs.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Không tải được danh sách tài liệu. Vui lòng thử lại.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
                   if (docs.isEmpty) {
                     return Center(
                       child: Text(
@@ -642,17 +836,19 @@ class _AppDrawerState extends State<_AppDrawer> {
                       ),
                     );
                   }
+
                   return ListView.builder(
                     padding: EdgeInsets.zero,
                     itemCount: docs.length,
                     itemBuilder: (context, index) => _DrawerItem(
                       doc: docs[index],
                       onView: () {
-                        Navigator.pop(context); // đóng drawer
+                        Navigator.pop(context);
                         Navigator.pushNamed(
                           context,
                           '/chat',
                           arguments: {
+                            'id': docs[index].id,
                             'title': docs[index].title,
                             'icon': docs[index].icon,
                           },
@@ -670,7 +866,21 @@ class _AppDrawerState extends State<_AppDrawer> {
                           return;
                         }
 
-                        DocumentsProvider.removeAt(context, index);
+                        final documentId = docs[index].id;
+                        if (documentId == null) {
+                          return;
+                        }
+
+                        final deleted = await ref
+                            .read(documentsListProvider.notifier)
+                            .deleteDocument(documentId);
+                        if (!deleted && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Không thể xóa tài liệu lúc này.'),
+                            ),
+                          );
+                        }
                       },
                     ),
                   );
@@ -1331,7 +1541,7 @@ class _DrawerItem extends StatelessWidget {
 // ─── Modal thêm tài liệu ─────────────────────────────────────────────────────
 
 class _AddDocumentModal extends StatelessWidget {
-  final void Function(DocumentItem doc) onSelected;
+  final void Function(_SourceOption option) onSelected;
 
   const _AddDocumentModal({required this.onSelected});
 
@@ -1342,6 +1552,8 @@ class _AddDocumentModal extends StatelessWidget {
 
     final options = [
       _SourceOption(
+        kind: 'pdf',
+        uploadSource: _UploadSource.pdf,
         icon: Icons.picture_as_pdf_outlined,
         label: 'Tải File PDF',
         documentTitle: 'Tài liệu PDF',
@@ -1349,6 +1561,8 @@ class _AddDocumentModal extends StatelessWidget {
         documentIcon: Icons.picture_as_pdf_outlined,
       ),
       _SourceOption(
+        kind: 'camera',
+        uploadSource: _UploadSource.camera,
         icon: Icons.camera_alt_outlined,
         label: 'Chụp bài tập',
         documentTitle: 'Ảnh chụp bài tập mới',
@@ -1356,6 +1570,8 @@ class _AddDocumentModal extends StatelessWidget {
         documentIcon: Icons.camera_alt_outlined,
       ),
       _SourceOption(
+        kind: 'image',
+        uploadSource: _UploadSource.gallery,
         icon: Icons.image_outlined,
         label: 'Tải Ảnh Lên',
         documentTitle: 'Ảnh tài liệu mới',
@@ -1363,6 +1579,8 @@ class _AddDocumentModal extends StatelessWidget {
         documentIcon: Icons.image_outlined,
       ),
       _SourceOption(
+        kind: 'drive',
+        uploadSource: _UploadSource.unsupported,
         icon: Icons.storage_outlined,
         label: 'Google Drive',
         documentTitle: 'Tài liệu từ Drive',
@@ -1429,11 +1647,7 @@ class _AddDocumentModal extends StatelessWidget {
             children: options
                 .map((opt) => _SourceTile(
                       option: opt,
-                      onTap: () => onSelected(DocumentItem(
-                        title: opt.documentTitle,
-                        subtitle: opt.documentSubtitle,
-                        icon: opt.documentIcon,
-                      )),
+                      onTap: () => onSelected(opt),
                     ))
                 .toList(),
           ),
@@ -1443,10 +1657,14 @@ class _AddDocumentModal extends StatelessWidget {
           _SourceTileWide(
             icon: Icons.text_fields_outlined,
             label: 'Nhập văn bản trực tiếp',
-            onTap: () => onSelected(const DocumentItem(
-              title: 'Văn bản trực tiếp',
-              subtitle: 'Văn bản',
+            onTap: () => onSelected(const _SourceOption(
+              kind: 'text',
+              uploadSource: _UploadSource.unsupported,
               icon: Icons.text_fields_outlined,
+              label: 'Nhập văn bản trực tiếp',
+              documentTitle: 'Văn bản trực tiếp',
+              documentSubtitle: 'Văn bản',
+              documentIcon: Icons.text_fields_outlined,
             )),
           ),
         ],
@@ -1458,6 +1676,8 @@ class _AddDocumentModal extends StatelessWidget {
 // ─── Helpers modal ────────────────────────────────────────────────────────────
 
 class _SourceOption {
+  final String kind;
+  final _UploadSource uploadSource;
   final IconData icon;
   final String label;
   final String documentTitle;
@@ -1465,11 +1685,25 @@ class _SourceOption {
   final IconData documentIcon;
 
   const _SourceOption({
+    required this.kind,
+    required this.uploadSource,
     required this.icon,
     required this.label,
     required this.documentTitle,
     required this.documentSubtitle,
     required this.documentIcon,
+  });
+}
+
+enum _UploadSource { pdf, camera, gallery, unsupported }
+
+class _PickedUpload {
+  final MultipartFile file;
+  final String title;
+
+  const _PickedUpload({
+    required this.file,
+    required this.title,
   });
 }
 
