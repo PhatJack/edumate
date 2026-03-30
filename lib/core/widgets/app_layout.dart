@@ -878,7 +878,7 @@ class _ChildrenManagerModalState extends State<_ChildrenManagerModal> {
         return;
       }
       setState(() {
-        _submitError = 'Khong the luu ho so be: $e';
+        _submitError = 'Không thể lưu hồ sơ bé: $e';
       });
     } finally {
       if (mounted) {
@@ -901,9 +901,9 @@ class _ChildrenManagerModalState extends State<_ChildrenManagerModal> {
   Future<void> _confirmAndDeleteChild(Child child) async {
     final confirmed = await showConfirmDeleteModal(
       context,
-      title: 'Xoa ho so be',
-      message: 'Ban co chac chan muon xoa ho so "${child.name}"?',
-      confirmText: 'Xoa con',
+      title: 'Xoá hồ sơ bé',
+      message: 'Bạn có chắc chắn muốn xoá hồ sơ "${child.name}"?',
+      confirmText: 'Xoá con',
     );
 
     if (!confirmed || !mounted) {
@@ -935,7 +935,7 @@ class _ChildrenManagerModalState extends State<_ChildrenManagerModal> {
         return;
       }
       setState(() {
-        _submitError = 'Khong the xoa ho so be: $e';
+        _submitError = 'Không thể xoá hồ sơ bé: $e';
       });
     } finally {
       if (mounted) {
