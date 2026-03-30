@@ -19,14 +19,17 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
-          distribution: 'zulu'
-          java-version: '17'
+          distribution: "zulu"
+          java-version: "17"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: "stable"
           cache: true
+
+      - name: Clean Flutter
+        run: flutter clean
 
       - name: Install Dependencies
         run: flutter pub get
@@ -39,15 +42,14 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_CHANNEL: 'deploy'
+          SLACK_CHANNEL: "deploy"
           SLACK_COLOR: ${{ job.status == 'success' && 'good' || (job.status == 'failure' && 'danger') || 'warning' }}
-          SLACK_ICON_EMOJI: ':robot_face:'
+          SLACK_ICON_EMOJI: ":robot_face:"
           SLACK_TITLE: "App Build - Android ${{ job.status == 'success' && '✅ SUCCESS' || (job.status == 'failure' && '❌ FAILED') || '⚠️ CANCELLED/SKIPPED' }}"
           SLACK_MESSAGE: |
             *Status*: ${{ job.status }}
             *Branch*: ${{ github.ref_name }}
             *Commit*: ${{ github.sha }}
-            *Workflow*: ${{ github.workflow }}
             *Run*: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SLACK_USERNAME: "Edumate CI Bot"
 
@@ -61,8 +63,11 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: "stable"
           cache: true
+
+      - name: Clean Flutter
+        run: flutter clean
 
       - name: Install Dependencies
         run: flutter pub get
@@ -77,17 +82,16 @@ jobs:
     if: always()
     steps:
       - name: Slack Notification (iOS)
-        uses: rtCamp/action-slack-notify@v2   # Thống nhất dùng rtCamp thay vì slackapi
+        uses: rtCamp/action-slack-notify@v2 # Thống nhất dùng rtCamp thay vì slackapi
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_CHANNEL: 'deploy'
+          SLACK_CHANNEL: "deploy"
           SLACK_COLOR: ${{ needs.build-ios.result == 'success' && 'good' || (needs.build-ios.result == 'failure' && 'danger') || 'warning' }}
-          SLACK_ICON_EMOJI: ':robot_face:'
+          SLACK_ICON_EMOJI: ":robot_face:"
           SLACK_TITLE: "App Build - iOS ${{ needs.build-ios.result == 'success' && '✅ SUCCESS' || (needs.build-ios.result == 'failure' && '❌ FAILED') || '⚠️ CANCELLED/SKIPPED' }}"
           SLACK_MESSAGE: |
             *Status*: ${{ needs.build-ios.result }}
             *Branch*: ${{ github.ref_name }}
             *Commit*: ${{ github.sha }}
-            *Workflow*: ${{ github.workflow }}
             *Run*: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SLACK_USERNAME: "Edumate CI Bot"
