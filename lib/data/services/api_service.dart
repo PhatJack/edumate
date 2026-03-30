@@ -1,6 +1,6 @@
-import 'package:dio/browser.dart';
 import 'package:edumate/core/config/app_config.dart';
 import 'package:dio/dio.dart';
+import 'package:edumate/data/services/http_adapter_config.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -19,7 +19,7 @@ class ApiService {
       ),
     );
 
-    (_dio.httpClientAdapter as BrowserHttpClientAdapter).withCredentials = true;
+    configureHttpAdapter(_dio);
 
     _dio.interceptors.add(
       InterceptorsWrapper(
