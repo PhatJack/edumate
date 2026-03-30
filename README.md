@@ -62,7 +62,7 @@ Mac dinh backend chay tai http://127.0.0.1:8000.
 ### Web (Chrome)
 
 ```bash
-flutter run -d chrome
+flutter run -d chrome --web-port 7001
 ```
 
 ### Android Emulator
