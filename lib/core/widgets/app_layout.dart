@@ -1,5 +1,9 @@
 import 'package:edumate/core/constants/sizes.dart';
+import 'package:edumate/core/exceptions/api_exception.dart';
 import 'package:edumate/core/providers/documents_provider.dart';
+import 'package:edumate/core/providers/profile_provider.dart';
+import 'package:edumate/data/models/profile_models.dart';
+import 'package:edumate/data/repositories/profile_repository.dart';
 import 'package:edumate/core/widgets/app_header.dart';
 import 'package:edumate/core/widgets/confirm_action_modal.dart';
 import 'package:edumate/core/widgets/guided_tour_modal.dart';
@@ -335,20 +339,39 @@ class _AppDrawer extends StatefulWidget {
 }
 
 class _AppDrawerState extends State<_AppDrawer> {
-  List<_ChildProfile> _children = const [
-    _ChildProfile(
-      id: 'child-1',
-      name: 'Bé Moon',
-      className: '4A',
-      learningNotes: 'Tiếp thu toán hình chậm, cần hướng dẫn bằng ví dụ thực tế.',
-    ),
-  ];
-  String? _selectedChildId = 'child-1';
+  List<Child> _children = const [];
+  String? _selectedChildId;
+  String? _parentFullName;
+  String? _parentEmail;
+  bool _isProfileLoading = false;
+  String? _profileError;
+
+  ValueNotifier<ProfileSessionState>? _profileNotifier;
+  VoidCallback? _profileListener;
+  bool _profileBound = false;
 
   @override
   void initState() {
     super.initState();
     _bindTourController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_profileBound) {
+      return;
+    }
+
+    _profileNotifier = ProfileProvider.of(context, listen: false);
+    _profileListener = _syncProfileState;
+    _profileNotifier!.addListener(_profileListener!);
+    _profileBound = true;
+
+    _syncProfileState();
+    if (_profileNotifier!.value.profile == null && !_profileNotifier!.value.isLoading) {
+      ProfileProvider.refresh(context);
+    }
   }
 
   @override
@@ -363,9 +386,42 @@ class _AppDrawerState extends State<_AppDrawer> {
 
   @override
   void dispose() {
+    if (_profileNotifier != null && _profileListener != null) {
+      _profileNotifier!.removeListener(_profileListener!);
+    }
     widget.tourController?.openChildrenManagerModal = null;
     widget.tourController?.closeChildrenManagerModal = null;
     super.dispose();
+  }
+
+  void _syncProfileState() {
+    final state = _profileNotifier?.value;
+    if (state == null || !mounted) {
+      return;
+    }
+
+    final profile = state.profile;
+    final fullName = profile == null
+        ? null
+        : [profile.firstName, profile.lastName]
+            .where((part) => part.trim().isNotEmpty)
+            .join(' ')
+            .trim();
+
+    setState(() {
+      _isProfileLoading = state.isLoading;
+      _profileError = state.errorMessage;
+      _parentFullName = (fullName == null || fullName.isEmpty) ? null : fullName;
+      _parentEmail = profile?.email;
+      _children = List<Child>.from(state.children);
+
+      if (_children.isEmpty) {
+        _selectedChildId = null;
+      } else if (_selectedChildId == null ||
+          !_children.any((child) => child.id == _selectedChildId)) {
+        _selectedChildId = _children.first.id;
+      }
+    });
   }
 
   void _bindTourController() {
@@ -378,7 +434,7 @@ class _AppDrawerState extends State<_AppDrawer> {
         _closeChildrenManagerModalIfOpen;
   }
 
-  _ChildProfile? get _selectedChild {
+  Child? get _selectedChild {
     for (final child in _children) {
       if (child.id == _selectedChildId) {
         return child;
@@ -418,6 +474,16 @@ class _AppDrawerState extends State<_AppDrawer> {
       _children = result.children;
       _selectedChildId = result.selectedChildId;
     });
+
+    final notifier = _profileNotifier;
+    if (notifier != null) {
+      notifier.value = notifier.value.copyWith(
+        children: List<Child>.from(result.children),
+        clearError: true,
+      );
+    }
+
+    await ProfileProvider.refresh(context);
   }
 
   Future<void> _closeChildrenManagerModalIfOpen() async {
@@ -659,7 +725,7 @@ class _AppDrawerState extends State<_AppDrawer> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _selectedChild?.name ?? 'Chưa có hồ sơ bé',
+                              _parentFullName ?? 'Phụ huynh',
                               style: theme.textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: colorScheme.onSurface,
@@ -667,24 +733,49 @@ class _AppDrawerState extends State<_AppDrawer> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              _selectedChild?.className ??
-                                  'Nhấn để thêm thông tin học tập',
+                              _isProfileLoading
+                                  ? 'Đang tải hồ sơ...'
+                                  : (_profileError != null
+                                      ? 'Không tải được hồ sơ. Nhấn để thử lại.'
+                                      : (_selectedChild == null
+                                          ? 'Chưa có hồ sơ bé'
+                                          : '${_selectedChild!.name}${((_selectedChild!.className ?? '').isEmpty) ? '' : ' - ${_selectedChild!.className}'}')),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
                             ),
+                            if ((_parentEmail ?? '').isNotEmpty)
+                              Text(
+                                _parentEmail!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
                           ],
                         ),
                       ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.settings_outlined,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        onPressed: _openChildrenManagerModal,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
+                      _isProfileLoading
+                          ? SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colorScheme.primary,
+                              ),
+                            )
+                          : IconButton(
+                              icon: Icon(
+                                _profileError != null
+                                    ? Icons.refresh
+                                    : Icons.settings_outlined,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              onPressed: _profileError != null
+                                  ? () => ProfileProvider.refresh(context)
+                                  : _openChildrenManagerModal,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
                     ],
                   ),
                 ),
@@ -697,36 +788,8 @@ class _AppDrawerState extends State<_AppDrawer> {
   }
 }
 
-class _ChildProfile {
-  final String id;
-  final String name;
-  final String className;
-  final String learningNotes;
-
-  const _ChildProfile({
-    required this.id,
-    required this.name,
-    required this.className,
-    required this.learningNotes,
-  });
-
-  _ChildProfile copyWith({
-    String? id,
-    String? name,
-    String? className,
-    String? learningNotes,
-  }) {
-    return _ChildProfile(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      className: className ?? this.className,
-      learningNotes: learningNotes ?? this.learningNotes,
-    );
-  }
-}
-
 class _ChildrenManagerResult {
-  final List<_ChildProfile> children;
+  final List<Child> children;
   final String? selectedChildId;
 
   const _ChildrenManagerResult({
@@ -736,7 +799,7 @@ class _ChildrenManagerResult {
 }
 
 class _ChildrenManagerModal extends StatefulWidget {
-  final List<_ChildProfile> initialChildren;
+  final List<Child> initialChildren;
   final String? selectedChildId;
 
   const _ChildrenManagerModal({
@@ -749,18 +812,21 @@ class _ChildrenManagerModal extends StatefulWidget {
 }
 
 class _ChildrenManagerModalState extends State<_ChildrenManagerModal> {
-  late List<_ChildProfile> _children;
+  final ProfileRepository _profileRepository = ProfileRepository.create();
+  late List<Child> _children;
   late String? _selectedChildId;
+  bool _isSubmitting = false;
+  String? _submitError;
 
   @override
   void initState() {
     super.initState();
-    _children = List<_ChildProfile>.from(widget.initialChildren);
+    _children = List<Child>.from(widget.initialChildren);
     _selectedChildId = widget.selectedChildId;
   }
 
-  Future<void> _openChildForm({_ChildProfile? child}) async {
-    final edited = await showModalBottomSheet<_ChildProfile>(
+  Future<void> _openChildForm({Child? child}) async {
+    final edited = await showModalBottomSheet<Child>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -772,14 +838,55 @@ class _ChildrenManagerModalState extends State<_ChildrenManagerModal> {
     }
 
     setState(() {
-      final idx = _children.indexWhere((c) => c.id == edited.id);
-      if (idx >= 0) {
-        _children[idx] = edited;
-      } else {
-        _children = [..._children, edited];
-      }
-      _selectedChildId = edited.id;
+      _isSubmitting = true;
+      _submitError = null;
     });
+
+    try {
+      final request = ChildMutationRequest(
+        name: edited.name,
+        className: edited.className,
+        learningNotes: edited.learningNotes,
+      );
+
+      final persisted = child == null
+          ? await _profileRepository.createChild(request)
+          : await _profileRepository.updateChild(child.id, request);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        final idx = _children.indexWhere((c) => c.id == persisted.id);
+        if (idx >= 0) {
+          _children[idx] = persisted;
+        } else {
+          _children = [..._children, persisted];
+        }
+        _selectedChildId = persisted.id;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _submitError = e.message;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _submitError = 'Không thể lưu hồ sơ bé: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   void _deleteChild(String childId) {
@@ -791,19 +898,52 @@ class _ChildrenManagerModalState extends State<_ChildrenManagerModal> {
     });
   }
 
-  Future<void> _confirmAndDeleteChild(_ChildProfile child) async {
+  Future<void> _confirmAndDeleteChild(Child child) async {
     final confirmed = await showConfirmDeleteModal(
       context,
-      title: 'Xoa ho so be',
-      message: 'Ban co chac chan muon xoa ho so "${child.name}"?',
-      confirmText: 'Xoa con',
+      title: 'Xoá hồ sơ bé',
+      message: 'Bạn có chắc chắn muốn xoá hồ sơ "${child.name}"?',
+      confirmText: 'Xoá con',
     );
 
     if (!confirmed || !mounted) {
       return;
     }
 
-    _deleteChild(child.id);
+    setState(() {
+      _isSubmitting = true;
+      _submitError = null;
+    });
+
+    try {
+      await _profileRepository.deleteChild(child.id);
+
+      if (!mounted) {
+        return;
+      }
+
+      _deleteChild(child.id);
+    } on ApiException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _submitError = e.message;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _submitError = 'Không thể xoá hồ sơ bé: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   void _closeWithResult() {
@@ -895,7 +1035,9 @@ class _ChildrenManagerModalState extends State<_ChildrenManagerModal> {
                           ),
                         ),
                         subtitle: Text(
-                          child.className.isEmpty ? 'Chưa có lớp học' : child.className,
+                          (child.className ?? '').isEmpty
+                              ? 'Chưa có lớp học'
+                              : child.className!,
                         ),
                         trailing: TextButton.icon(
                           onPressed: () => _confirmAndDeleteChild(child),
@@ -908,10 +1050,34 @@ class _ChildrenManagerModalState extends State<_ChildrenManagerModal> {
                 ),
               ),
             const SizedBox(height: 12),
+            if (_isSubmitting) ...[
+              LinearProgressIndicator(
+                borderRadius: BorderRadius.circular(999),
+                minHeight: 4,
+              ),
+              const SizedBox(height: 12),
+            ],
+            if ((_submitError ?? '').isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _submitError!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onErrorContainer,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () => _openChildForm(),
+                onPressed: _isSubmitting ? null : () => _openChildForm(),
                 icon: const Icon(Icons.person_add_alt_1),
                 label: const Text('Thêm con'),
               ),
@@ -920,7 +1086,7 @@ class _ChildrenManagerModalState extends State<_ChildrenManagerModal> {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: _closeWithResult,
+                onPressed: _isSubmitting ? null : _closeWithResult,
                 child: const Text('Xong'),
               ),
             ),
@@ -932,7 +1098,7 @@ class _ChildrenManagerModalState extends State<_ChildrenManagerModal> {
 }
 
 class _ChildProfileFormModal extends StatefulWidget {
-  final _ChildProfile? child;
+  final Child? child;
 
   const _ChildProfileFormModal({this.child});
 
@@ -972,11 +1138,15 @@ class _ChildProfileFormModalState extends State<_ChildProfileFormModal> {
     final id = widget.child?.id ?? 'child-${DateTime.now().millisecondsSinceEpoch}';
 
     Navigator.of(context).pop(
-      _ChildProfile(
+      Child(
         id: id,
         name: _nameController.text.trim(),
-        className: _classController.text.trim(),
-        learningNotes: _notesController.text.trim(),
+        className: _classController.text.trim().isEmpty
+            ? null
+            : _classController.text.trim(),
+        learningNotes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
       ),
     );
   }

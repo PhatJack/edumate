@@ -1,10 +1,14 @@
+import 'dart:convert';
+
 import 'package:edumate/core/constants/images.dart';
 import 'package:edumate/core/config/app_config.dart';
 import 'package:edumate/core/extensions/theme_extension.dart';
+import 'package:edumate/core/providers/profile_provider.dart';
 import 'package:edumate/core/constants/sizes.dart';
 import 'package:edumate/data/repositories/auth_repository.dart';
 import 'package:edumate/data/services/api_service.dart';
 import 'package:edumate/routes/app_routes.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -21,11 +25,31 @@ class _LoginScreenState extends State<LoginScreen> {
   late final GoogleSignIn _googleSignIn;
   bool _isGoogleSigningIn = false;
 
+  String? _extractJwtAudience(String jwt) {
+    final parts = jwt.split('.');
+    if (parts.length < 2) {
+      return null;
+    }
+
+    final normalized = base64Url.normalize(parts[1]);
+    final payloadJson = utf8.decode(base64Url.decode(normalized));
+    final payload = jsonDecode(payloadJson);
+    if (payload is! Map<String, dynamic>) {
+      return null;
+    }
+
+    final aud = payload['aud'];
+    if (aud is String && aud.trim().isNotEmpty) {
+      return aud.trim();
+    }
+    return null;
+  }
+
   bool get _canUseGoogleSignIn {
     if (!kIsWeb) {
       return true;
     }
-    return AppConfig.googleWebClientId != null;
+    return AppConfig.hasFirebaseWebConfig;
   }
 
   @override
@@ -52,20 +76,60 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final GoogleSignInAccount? account = await _googleSignIn.signIn();
-      if (account == null) {
-        return;
+      UserCredential firebaseCredential;
+
+      if (kIsWeb) {
+        final provider = GoogleAuthProvider()
+          ..addScope('email')
+          ..addScope('profile');
+
+        firebaseCredential =
+            await FirebaseAuth.instance.signInWithPopup(provider);
+      } else {
+        final GoogleSignInAccount? account = await _googleSignIn.signIn();
+        if (account == null) {
+          return;
+        }
+
+        final GoogleSignInAuthentication auth = await account.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: auth.accessToken,
+          idToken: auth.idToken,
+        );
+
+        firebaseCredential =
+            await FirebaseAuth.instance.signInWithCredential(credential);
       }
 
-      final GoogleSignInAuthentication auth = await account.authentication;
-      final String? idToken = auth.idToken;
+      // Backend verifies Firebase ID token (aud = Firebase project id),
+      // so we must send token issued by FirebaseAuth user session.
+      final firebaseUser = FirebaseAuth.instance.currentUser ?? firebaseCredential.user;
+      final backendIdToken = await firebaseUser?.getIdToken(true);
 
-      if (idToken == null || idToken.isEmpty) {
-        throw Exception('Google ID token is missing.');
+      if (backendIdToken == null || backendIdToken.isEmpty) {
+        throw Exception('Firebase token is missing after Google sign-in.');
       }
 
-      final tokenResponse = await _authRepository.signInWithGoogle(idToken);
+      final expectedAudience = AppConfig.firebaseProjectId;
+      final tokenAudience = _extractJwtAudience(backendIdToken);
+      if (expectedAudience != null &&
+          expectedAudience.isNotEmpty &&
+          tokenAudience != expectedAudience) {
+        throw Exception(
+          'Firebase token audience mismatch. Expected "$expectedAudience" but got "$tokenAudience".',
+        );
+      }
+
+      final tokenResponse =
+          await _authRepository.signInWithGoogle(backendIdToken);
       ApiService().setBearerToken(tokenResponse.accessToken);
+
+      if (mounted) {
+        final profileNotifier = ProfileProvider.ofOrNull(context, listen: false);
+        if (profileNotifier != null) {
+          await ProfileProvider.refreshNotifier(profileNotifier);
+        }
+      }
 
       if (!mounted) {
         return;
@@ -79,12 +143,14 @@ class _LoginScreenState extends State<LoginScreen> {
       final message = e.toString();
       final normalized = message.toLowerCase();
       final isWebGoogleConfigIssue = kIsWeb &&
-          (normalized.contains('signin') || normalized.contains('signln'));
+          (normalized.contains('signin') ||
+              normalized.contains('signln') ||
+              normalized.contains('firebase'));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             isWebGoogleConfigIssue
-                ? 'Google Sign-In web is not configured correctly. Check GOOGLE_WEB_CLIENT_ID and Google OAuth Web setup.'
+                ? 'Google Sign-In web chua duoc cau hinh dung. Vui long kiem tra FIREBASE_* trong file .env.'
                 : 'Google sign-in failed: $e',
           ),
         ),
@@ -98,13 +164,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _handleTemporaryLogin() {
+  void _handleGoogleConfigMissing() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Temporary login enabled: opening Home screen.'),
+        content: Text('Thieu cau hinh Firebase web trong .env.')
       ),
     );
-    Navigator.pushReplacementNamed(context, AppRoutes.home);
   }
 
   @override
@@ -143,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Text(
                 _canUseGoogleSignIn
                     ? 'Chỉ hỗ trợ đăng nhập bằng Google'
-                    : 'Chưa có GOOGLE_WEB_CLIENT_ID, đang dùng đăng nhập tạm để xem giao diện',
+                    : 'Thieu cau hinh Firebase web, khong the dang nhap Google',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: context.colors.onSurfaceVariant,
                 ),
@@ -181,23 +246,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? (_isGoogleSigningIn
                             ? 'Đang đăng nhập...'
                             : 'Đăng nhập với Google')
-                        : 'Đăng nhập tạm thời',
+                        : 'Thiếu cấu hình Firebase',
                   ),
                   onPressed: _isGoogleSigningIn
                       ? null
                       : (_canUseGoogleSignIn
                           ? _handleGoogleSignIn
-                          : _handleTemporaryLogin),
+                          : _handleGoogleConfigMissing),
                 ),
               ),
               const SizedBox(height: 12),
-
-              /*
-              Legacy login flows are temporarily disabled by requirement:
-              - Email/password form
-              - Register CTA
-              Keep this block as reference while Google-only auth is active.
-              */
             ],
           ),
         ),
