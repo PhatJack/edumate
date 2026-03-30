@@ -48,6 +48,7 @@ class AppRoutes {
         final args = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
           builder: (context) => ChatScreen(
+            documentId: args?['id']?.toString() ?? '',
             documentTitle: args?['title'] ?? 'Tài liệu mới',
             documentIcon: args?['icon'] ?? Icons.description_outlined,
           ),

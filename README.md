@@ -68,9 +68,7 @@ flutter run -d chrome --web-port 7001
 ### Android Emulator
 
 ```bash
-flutter emulators
-flutter emulators --launch <emulator_id>
-flutter run -d emulator-5554
+flutter run -d RF8R10K1NGX
 ```
 
 ### Kiem tra danh sach thiet bi
@@ -100,3 +98,4 @@ flutter pub get
 - Loi CORS khi login web: kiem tra CORS_ORIGINS hoac CORS_ORIGINS_REGEX ben backend.
 - Loi audience Firebase ID token: kiem tra FIREBASE_PROJECT_ID ben FE va service account ben BE phai cung project.
 - Loi ket noi backend tren Android emulator: dam bao API_BASE_URL_ANDROID dung 10.0.2.2.
+- Loi `JSObject`/`JSAny` khi build Android: tranh import truc tiep thu vien web-only (vi du `package:dio/browser.dart`) trong code dung chung; dung conditional import theo platform.

@@ -1,19 +1,28 @@
 import 'dart:async';
 
 import 'package:edumate/core/constants/sizes.dart';
+import 'package:edumate/core/exceptions/api_exception.dart';
 import 'package:edumate/core/widgets/app_layout.dart';
 import 'package:edumate/core/widgets/chat/bot_message_bubble.dart';
 import 'package:edumate/core/widgets/chat/exercise_list_sheet.dart';
 import 'package:edumate/core/widgets/chat/manage_exercise_sheet.dart';
 import 'package:edumate/core/widgets/guided_tour_modal.dart';
+import 'package:edumate/data/models/chat_models.dart';
+import 'package:edumate/data/models/document_models.dart';
+import 'package:edumate/data/repositories/chat_repository.dart';
+import 'package:edumate/data/repositories/documents_repository.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ChatScreen extends StatefulWidget {
+  final String documentId;
   final String documentTitle;
   final IconData documentIcon;
 
   const ChatScreen({
     super.key,
+    required this.documentId,
     required this.documentTitle,
     required this.documentIcon,
   });
@@ -23,6 +32,8 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final ChatRepository _chatRepository = ChatRepository.create();
+  final DocumentsRepository _documentsRepository = DocumentsRepository.create();
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _layoutScaffoldKey = GlobalKey<ScaffoldState>();
@@ -37,30 +48,185 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _isManageSheetOpen = false;
   bool _isExerciseSheetOpen = false;
+  bool _isLoading = true;
+  bool _isSending = false;
+  String? _loadError;
 
   String? _selectedExerciseId;
 
-  final Map<String, String> _exerciseTitlesById = {
-    'ex-1': 'Bài 1: Xác định từ láy',
-    'ex-2': 'Bài 2: Đặt câu',
-  };
+  final Map<String, String> _exerciseTitlesById = {};
 
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'role': 'system',
-      'text': 'Hệ thống đã phân tích phiếu bài tập. Dưới đây là các bài tập được tìm thấy, ba mẹ vui lòng chọn bài tập mục tiêu để Edumate có thể đưa ra hướng dẫn tập trung nhất.',
-      'message_type': 'welcome',
-      'meta': {
-        'exercise_ids': ['ex-1', 'ex-2'],
-      },
-    }
-  ];
+  final List<Map<String, dynamic>> _messages = [];
 
   String? get _selectedExerciseTitle {
     if (_selectedExerciseId == null) {
       return null;
     }
     return _exerciseTitlesById[_selectedExerciseId!];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
+  }
+
+  Map<String, dynamic> _toUiMessage(ChatMessage message) {
+    final role = message.role == 'assistant' ? 'bot' : message.role;
+    return {
+      'role': role,
+      'text': message.content,
+      'message_type': message.messageType,
+      'meta': message.meta,
+      'exercise_id': message.exerciseId,
+    };
+  }
+
+  Future<void> _loadInitialData() async {
+    if (widget.documentId.trim().isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _loadError = 'Thiếu document_id. Không thể tải phiên trò chuyện.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+
+    try {
+      final results = await Future.wait([
+        _documentsRepository.listExercises(widget.documentId),
+        _chatRepository.listMessages(widget.documentId),
+      ]);
+
+      final exercises = results[0] as List<Exercise>;
+      final messages = (results[1] as MessagesListResponse).items;
+      final exerciseTitles = <String, String>{
+        for (final exercise in exercises) exercise.id: exercise.title,
+      };
+      final uiMessages = messages.map(_toUiMessage).toList(growable: false);
+
+      String? selectedExerciseId;
+      ChatMessage? welcomeMessage;
+      for (final message in messages) {
+        if (message.messageType == 'welcome') {
+          welcomeMessage = message;
+        }
+      }
+      if (welcomeMessage != null && welcomeMessage.welcomeExerciseIds.isNotEmpty) {
+        selectedExerciseId = welcomeMessage.welcomeExerciseIds.first;
+      }
+      selectedExerciseId ??= exerciseTitles.isNotEmpty ? exerciseTitles.keys.first : null;
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _exerciseTitlesById
+          ..clear()
+          ..addAll(exerciseTitles);
+        _messages
+          ..clear()
+          ..addAll(uiMessages);
+        _selectedExerciseId = selectedExerciseId;
+        _isLoading = false;
+        _loadError = null;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isLoading = false;
+        _loadError = e.message;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isLoading = false;
+        _loadError = 'Không thể tải dữ liệu cuộc trò chuyện: $e';
+      });
+    }
+  }
+
+  Future<void> _updateSelectedExercise({
+    String? detail,
+    String? sampleSolution,
+    bool? clearSampleSolutionImage,
+  }) async {
+    final exerciseId = _selectedExerciseId;
+    if (exerciseId == null) {
+      return;
+    }
+
+    await _documentsRepository.updateExercise(
+      widget.documentId,
+      exerciseId,
+      ExerciseUpdateRequest(
+        detail: detail,
+        sampleSolution: sampleSolution,
+        clearSampleSolutionImage: clearSampleSolutionImage,
+      ),
+    );
+  }
+
+  Future<void> _uploadReferenceImage(ImageSource source) async {
+    final exerciseId = _selectedExerciseId;
+    if (exerciseId == null) {
+      return;
+    }
+
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: source, imageQuality: 95);
+    if (image == null) {
+      return;
+    }
+
+    final bytes = await image.readAsBytes();
+    await _documentsRepository.uploadExerciseSampleSolutionImage(
+      widget.documentId,
+      exerciseId,
+      MultipartFile.fromBytes(
+        bytes,
+        filename: image.name.isEmpty
+            ? 'sample-solution-${DateTime.now().millisecondsSinceEpoch}.jpg'
+            : image.name,
+      ),
+    );
+  }
+
+  Future<void> _generateSimilarExercise(String hint) async {
+    final exerciseId = _selectedExerciseId;
+    if (exerciseId == null) {
+      return;
+    }
+
+    final created = await _documentsRepository.generateSimilarExercise(
+      widget.documentId,
+      exerciseId,
+      hint: hint,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _exerciseTitlesById[created.id] = created.title;
+      _selectedExerciseId = created.id;
+      _messages.add({
+        'role': 'system',
+        'message_type': 'text',
+        'text': 'Đã tạo bài tương tự mới: ${created.title}',
+        'exercise_id': created.id,
+      });
+    });
   }
 
   @override
@@ -135,6 +301,9 @@ class _ChatScreenState extends State<ChatScreen> {
         .map((id) => _exerciseTitlesById[id])
         .whereType<String>()
         .toList();
+    if (exercises.isEmpty) {
+      exercises.addAll(_exerciseTitlesById.values);
+    }
     if (exercises.isEmpty || _isExerciseSheetOpen) return;
 
     _isExerciseSheetOpen = true;
@@ -163,6 +332,14 @@ class _ChatScreenState extends State<ChatScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => ManageExerciseSheet(
         exerciseTitle: _selectedExerciseTitle!,
+        onSaveDetails: (detail) => _updateSelectedExercise(detail: detail),
+        onSaveReferenceSolution: (solution) =>
+          _updateSelectedExercise(sampleSolution: solution),
+        onUploadReferenceFromCamera: () =>
+          _uploadReferenceImage(ImageSource.camera),
+        onUploadReferenceFromGallery: () =>
+          _uploadReferenceImage(ImageSource.gallery),
+        onGenerateSimilar: _generateSimilarExercise,
         detailsSectionKey: _manageDetailsSectionKey,
         referenceSolutionSectionKey: _manageReferenceSectionKey,
         extendedPracticeSectionKey: _manageExtendedSectionKey,
@@ -197,10 +374,14 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    if (_selectedExerciseId == null) {
+    if (_selectedExerciseId == null && _exerciseTitlesById.isNotEmpty) {
       setState(() {
         _selectedExerciseId = _exerciseTitlesById.keys.first;
       });
+    }
+
+    if (_selectedExerciseTitle == null) {
+      return;
     }
 
     _isManageSheetOpen = true;
@@ -211,6 +392,14 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: Colors.transparent,
         builder: (_) => ManageExerciseSheet(
           exerciseTitle: _selectedExerciseTitle!,
+          onSaveDetails: (detail) => _updateSelectedExercise(detail: detail),
+          onSaveReferenceSolution: (solution) =>
+            _updateSelectedExercise(sampleSolution: solution),
+          onUploadReferenceFromCamera: () =>
+            _uploadReferenceImage(ImageSource.camera),
+          onUploadReferenceFromGallery: () =>
+            _uploadReferenceImage(ImageSource.gallery),
+          onGenerateSimilar: _generateSimilarExercise,
           detailsSectionKey: _manageDetailsSectionKey,
           referenceSolutionSectionKey: _manageReferenceSectionKey,
           extendedPracticeSectionKey: _manageExtendedSectionKey,
@@ -273,18 +462,20 @@ class _ChatScreenState extends State<ChatScreen> {
     await Future.delayed(const Duration(milliseconds: 220));
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
-    if (text.isEmpty || _selectedExerciseId == null) {
+    final exerciseId = _selectedExerciseId;
+    if (text.isEmpty || exerciseId == null || _isSending) {
       return;
     }
 
     setState(() {
+      _isSending = true;
       _messages.add({
         'role': 'user',
         'message_type': 'text',
         'text': text,
-        'exercise_id': _selectedExerciseId,
+        'exercise_id': exerciseId,
       });
       _inputController.clear();
     });
@@ -298,6 +489,61 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       }
     });
+
+    try {
+      final response = await _chatRepository.sendMessage(
+        widget.documentId,
+        message: text,
+        exerciseId: exerciseId,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        if (response.messages.isNotEmpty) {
+          _messages
+            ..clear()
+            ..addAll(response.messages.map(_toUiMessage));
+        } else if (response.reply.trim().isNotEmpty) {
+          _messages.add({
+            'role': 'bot',
+            'message_type': 'text',
+            'text': response.reply,
+            'exercise_id': exerciseId,
+          });
+        }
+      });
+    } on ApiException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không thể gửi tin nhắn: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
+    }
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   Future<void> _runGuidedTour() async {
@@ -531,82 +777,114 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             key: _centerProblemPanelKey,
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(16.0),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final msg = _messages[index];
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _loadError != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _loadError!,
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.error,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              FilledButton(
+                                onPressed: _loadInitialData,
+                                child: const Text('Tải lại'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(16.0),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) {
+                          final msg = _messages[index];
                 
-                if (msg['role'] == 'system') {
-                  Widget? bottomWidget;
+                          if (msg['role'] == 'system' ||
+                              msg['role'] == 'bot' ||
+                              msg['role'] == 'assistant') {
+                            Widget? bottomWidget;
                   
-                  if (msg['message_type'] == 'welcome') {
-                    final dynamic meta = msg['meta'];
-                    final dynamic rawExerciseIds =
-                        meta is Map<String, dynamic> ? meta['exercise_ids'] : null;
-                    final List<String> exerciseIds = rawExerciseIds is List
-                        ? rawExerciseIds.map((e) => e.toString()).toList()
-                        : <String>[];
-                    final List<String> exercises = exerciseIds
-                        .map((id) => _exerciseTitlesById[id])
-                        .whereType<String>()
-                        .toList();
-                    bottomWidget = Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                         Text(
-                          'DANH SÁCH BÀI TẬP HIỆN CÓ',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        for (final ex in exercises) _buildExerciseItem(context, ex),
-                      ],
-                    );
-                  }
+                            if (msg['message_type'] == 'welcome') {
+                              final dynamic meta = msg['meta'];
+                              final dynamic rawExerciseIds =
+                                  meta is Map<String, dynamic>
+                                      ? meta['exercise_ids']
+                                      : null;
+                              final List<String> exerciseIds = rawExerciseIds is List
+                                  ? rawExerciseIds
+                                      .map((e) => e.toString())
+                                      .toList()
+                                  : <String>[];
+                              final List<String> exercises = exerciseIds
+                                  .map((id) => _exerciseTitlesById[id])
+                                  .whereType<String>()
+                                  .toList();
+                              bottomWidget = Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'DANH SÁCH BÀI TẬP HIỆN CÓ',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  for (final ex in exercises)
+                                    _buildExerciseItem(context, ex),
+                                ],
+                              );
+                            }
 
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
-                    child: BotMessageBubble(
-                      text: msg['text']?.toString() ?? '',
-                      bottomWidget: bottomWidget,
-                    ),
-                  );
-                }
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16.0),
+                              child: BotMessageBubble(
+                                text: msg['text']?.toString() ?? '',
+                                bottomWidget: bottomWidget,
+                              ),
+                            );
+                          }
                 
-                if (msg['role'] == 'user') {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12.0),
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        constraints: const BoxConstraints(maxWidth: 320),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          msg['text']?.toString() ?? '',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onPrimary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }
+                          if (msg['role'] == 'user') {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Container(
+                                  constraints: const BoxConstraints(maxWidth: 320),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.primary,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    msg['text']?.toString() ?? '',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.onPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
 
-                return const SizedBox.shrink();
-              },
-            ),
+                          return const SizedBox.shrink();
+                        },
+                      ),
           ),
 
           // Bottom input area
@@ -742,7 +1020,9 @@ class _ChatScreenState extends State<ChatScreen> {
                             color: colorScheme.primary,
                             size: 20,
                           ),
-                          onPressed: _sendMessage,
+                          onPressed: (_selectedExerciseId == null || _isSending)
+                              ? null
+                              : _sendMessage,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),

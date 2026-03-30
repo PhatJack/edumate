@@ -3,14 +3,18 @@ import 'package:flutter/material.dart';
 // ─── Model ────────────────────────────────────────────────────────────────────
 
 class DocumentItem {
+  final String? id;
   final String title;
   final String subtitle;
   final IconData icon;
+  final String? kind;
 
   const DocumentItem({
+    this.id,
     required this.title,
     required this.subtitle,
     required this.icon,
+    this.kind,
   });
 }
 
