@@ -3,9 +3,9 @@ set -euo pipefail
 
 # Use web-specific assets (without .env) for Vercel web build.
 cp pubspec.web.yaml pubspec.yaml
-flutter pub get
+flutter/bin/flutter pub get
 
-flutter build web --release \
+flutter/bin/flutter build web --release \
   --dart-define=API_BASE_URL="${API_BASE_URL:-}" \
   --dart-define=API_BASE_URL_WEB="${API_BASE_URL_WEB:-}" \
   --dart-define=FIREBASE_API_KEY="${FIREBASE_API_KEY:-}" \
