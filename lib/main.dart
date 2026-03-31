@@ -12,15 +12,14 @@ import 'routes/app_routes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Load .env only on native platforms (Android, iOS, etc.)
-  // On web, use compile-time defines or Vite environment variables
-  if (!kIsWeb) {
-    try {
-      await dotenv.load(fileName: '.env');
-    } catch (_) {
-      // Allow app to run with fallback config for local/test scenarios.
-    }
+
+  // Load `.env` for both native and web.
+  // `flutter_dotenv` will throw on web if `dotenv.load()` hasn't been called.
+  // We keep it in a try/catch so local/dev scenarios without `.env` still run.
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // Allow app to run with fallback config for local/test scenarios.
   }
 
   if (kIsWeb) {

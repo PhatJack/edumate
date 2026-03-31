@@ -20,8 +20,15 @@ class AppConfig {
   };
 
   static String _fromEnv(String key) {
-    final value = dotenv.env[key]?.trim() ?? '';
-    return value;
+    // `flutter_dotenv` needs `dotenv.load()` before `dotenv.env` can be read.
+    // On Flutter Web we don't call `dotenv.load()`, so `dotenv.env` throws.
+    // In that case, just treat env as "missing" and fall back to the
+    // compile-time defines (String.fromEnvironment) below.
+    try {
+      return dotenv.env[key]?.trim() ?? '';
+    } catch (_) {
+      return '';
+    }
   }
 
   static String _fromDefine(String key) {
