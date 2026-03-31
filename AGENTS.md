@@ -16,30 +16,62 @@ Edumate is a comprehensive educational platform designed to connect students wit
 ```
 ├── lib/
 │   ├── core/
+│   │   ├── config/
+│   │   │   └── app_config.dart
 │   │   ├── constants/
 │   │   │   ├── images.dart
 │   │   │   └── sizes.dart
+│   │   ├── exceptions/
+│   │   │   └── api_exception.dart
 │   │   ├── extensions/
 │   │   │   └── theme_extension.dart
+│   │   ├── helpers/
 │   │   ├── providers/
-│   │   │   └── documents_provider.dart
+│   │   │   ├── documents_provider.dart
+│   │   │   ├── documents_state_provider.dart
+│   │   │   └── profile_provider.dart
 │   │   ├── screens/
 │   │   │   ├── chat_screen.dart
 │   │   │   ├── details_screen.dart
 │   │   │   ├── home_screen.dart
 │   │   │   ├── intro_screen.dart
 │   │   │   ├── login_screen.dart
-│   │   │   ├── profile_screen.dart
 │   │   │   └── register_screen.dart
 │   │   ├── theme/
 │   │   │   └── theme.dart
+│   │   ├── utils/
 │   │   └── widgets/
 │   │       ├── app_header.dart
 │   │       ├── app_layout.dart
-│   │       └── app_safearea.dart
+│   │       ├── app_safearea.dart
+│   │       ├── chat/
+│   │       ├── confirm_action_modal.dart
+│   │       └── guided_tour_modal.dart
 │   ├── data/
+│   │   ├── constants/
+│   │   │   └── api_endpoints.dart
+│   │   ├── models/
+│   │   │   ├── api_envelope.dart
+│   │   │   ├── auth_models.dart
+│   │   │   ├── chat_models.dart
+│   │   │   ├── document_models.dart
+│   │   │   ├── paginated_response.dart
+│   │   │   ├── profile_models.dart
+│   │   │   ├── upload_models.dart
+│   │   │   └── user_models.dart
+│   │   ├── repositories/
+│   │   │   ├── auth_repository.dart
+│   │   │   ├── base_repository.dart
+│   │   │   ├── chat_repository.dart
+│   │   │   ├── documents_repository.dart
+│   │   │   ├── profile_repository.dart
+│   │   │   ├── uploads_repository.dart
+│   │   │   └── users_repository.dart
 │   │   └── services/
-│   │       └── api_service.dart
+│   │       ├── api_service.dart
+│   │       ├── http_adapter_config.dart
+│   │       ├── http_adapter_config_stub.dart
+│   │       └── http_adapter_config_web.dart
 │   ├── routes/
 │   │   └── app_routes.dart
 │   └── main.dart
@@ -70,10 +102,17 @@ Edumate is a comprehensive educational platform designed to connect students wit
 - **`EDUMATE_FSD_en.md`**: Comprehensive Functional Specification Document.
 - **`lib/core/theme/theme.dart`**: Centralized theme and color definitions.
 - **`lib/core/extensions/theme_extension.dart`**: Theme extension for easy access to colors and typography.
-- **`lib/core/screens/`**: List of all screens inside the app
-- **`lib/core/widgets/`**: Reusable widgets.
-- **`lib/core/constants/`**: Constants for colors, sizes, and other values.
-- **`lib/core/providers/`**: Global state management providers.
-- **`lib/core/helpers/`**: Helper functions.
-- **`lib/routes/`**: App routes.
+- **`lib/core/config/`**: Application configuration files.
+- **`lib/core/constants/`**: Constants for colors, sizes, images, and other static values.
+- **`lib/core/exceptions/`**: Custom exception definitions for error handling.
+- **`lib/core/screens/`**: All screen/page components.
+- **`lib/core/providers/`**: Global state management providers using Riverpod.
+- **`lib/core/widgets/`**: Reusable UI widgets and components.
+- **`lib/core/helpers/`**: Helper functions and utilities.
+- **`lib/core/utils/`**: Utility functions and tools.
+- **`lib/data/constants/`**: Data layer constants (e.g., API endpoints).
+- **`lib/data/models/`**: Data models and DTOs for API responses.
+- **`lib/data/repositories/`**: Repository pattern implementation for data access.
+- **`lib/data/services/`**: API service and HTTP configuration.
+- **`lib/routes/`**: App routing and navigation configuration.
 - **`lib/main.dart`**: App entry point.

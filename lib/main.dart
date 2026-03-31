@@ -12,17 +12,22 @@ import 'routes/app_routes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await dotenv.load(fileName: '.env');
-  } catch (_) {
-    // Allow app to run with fallback config for local/test scenarios.
+  
+  // Load .env only on native platforms (Android, iOS, etc.)
+  // On web, use compile-time defines or Vite environment variables
+  if (!kIsWeb) {
+    try {
+      await dotenv.load(fileName: '.env');
+    } catch (_) {
+      // Allow app to run with fallback config for local/test scenarios.
+    }
   }
 
   if (kIsWeb) {
     final webOptions = AppConfig.firebaseWebOptions;
     if (webOptions == null) {
       throw StateError(
-        'Missing Firebase web config. Set FIREBASE_* (or VITE_FIREBASE_*) in .env.',
+        'Missing Firebase web config. Set FIREBASE_* (or VITE_FIREBASE_*) as build defines.',
       );
     }
     await Firebase.initializeApp(options: webOptions);
