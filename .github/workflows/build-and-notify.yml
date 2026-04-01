@@ -55,6 +55,8 @@ jobs:
             *Commit*: ${{ github.sha }}
             *Run*: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SLACK_USERNAME: "Edumate CI Bot"
+          MSG_MINIMAL: true
+          SLACKIFY_MARKDOWN: true
 
   build-android:
     name: Build Android
@@ -108,7 +110,8 @@ jobs:
             *Commit*: ${{ github.sha }}
             *Run*: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SLACK_USERNAME: "Edumate CI Bot"
-
+          MSG_MINIMAL: true
+          SLACKIFY_MARKDOWN: true
   build-ios:
     name: Build iOS
     runs-on: macos-latest
@@ -160,3 +163,5 @@ jobs:
             *Commit*: ${{ github.sha }}
             *Run*: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SLACK_USERNAME: "Edumate CI Bot"
+          MSG_MINIMAL: true
+          SLACKIFY_MARKDOWN: true
