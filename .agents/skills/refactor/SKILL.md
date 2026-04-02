@@ -1,5 +1,5 @@
 ---
-name: refactor:flutter
+name: refactor
 description: Guidelines and patterns for refactoring Dart and Flutter code in the Edumate project.
 ---
 
